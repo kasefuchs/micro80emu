@@ -1,6 +1,7 @@
 #include "I8080.h"
 
 #include <cstdio>
+#include <iostream>
 
 const std::array<std::uint8_t, 256> I8080::PARITY_TABLE = {
     {
@@ -42,9 +43,10 @@ const int I8080::OPCODE_CYCLES[256] = {
     5, 11, 10, 17, 11, 7, 11, 5, 10, 5, 11, 17, 11, 7, 11, 5 // 0xF0..0xFF
 };
 
-
 I8080::I8080(ReadMem rm, WriteMem wm, ReadIO rio, WriteIO wio)
-    : readMemory(std::move(rm)), writeMemory(std::move(wm)), readIO(std::move(rio)), writeIO(std::move(wio)) {
+    : movRegs{&regB, &regC, &regD, &regE, &regH, &regL, nullptr, &regA},
+      readMemory(std::move(rm)), writeMemory(std::move(wm)),
+      readIO(std::move(rio)), writeIO(std::move(wio)) {
 }
 
 int I8080::step() {
@@ -106,15 +108,13 @@ void I8080::updateFlagsDcr(const std::uint8_t v) {
     parityFlag = PARITY_TABLE[v];
 }
 
-int I8080::executeMov(Opcode opcode) {
-    std::uint8_t *regs[8] = {&regB, &regC, &regD, &regE, &regH, &regL, nullptr, &regA};
-
+int I8080::executeMov(Opcode opcode) const {
     const int dest = static_cast<int>(opcode) >> 3 & 0x07;
     const int src = static_cast<int>(opcode) & 0x07;
 
     auto readReg = [&](const int code) -> uint8_t {
         if (code == 6) return readMemory(getHL());
-        return *regs[code];
+        return *movRegs[code];
     };
 
     auto writeReg = [&](const int code, const uint8_t value) {
@@ -123,17 +123,31 @@ int I8080::executeMov(Opcode opcode) {
             return 7;
         }
 
-        *regs[code] = value;
+        *movRegs[code] = value;
         return 5;
     };
 
     return writeReg(dest, readReg(src));
 }
 
+int I8080::executeMvi(Opcode opcode) {
+    const int dest = static_cast<int>(opcode) >> 3 & 0x07;
+    const uint8_t value = fetchByte();
+
+    if (dest == 6) {
+        writeMemory(getHL(), value);
+        return 10;
+    }
+
+    *movRegs[dest] = value;
+    return 7;
+}
+
 int I8080::executeOpcode(Opcode opcode) {
     std::uint16_t temp;
 
-    if (opcode >= Opcode::MOV_B_B && opcode <= Opcode::MOV_A_A && opcode != Opcode::HLT) return executeMov(opcode);
+    if ((static_cast<int>(opcode) & 0xC7) == 0x06) return executeMvi(opcode);
+    if ((static_cast<int>(opcode) & 0xC0) == 0x40 && opcode != Opcode::HLT) return executeMov(opcode);
 
     switch (opcode) {
         case Opcode::NOP:
@@ -148,6 +162,15 @@ int I8080::executeOpcode(Opcode opcode) {
         case Opcode::LXI_B:
             setBC(fetchWord());
             break;
+        case Opcode::LXI_D:
+            setDE(fetchWord());
+            break;
+        case Opcode::LXI_H:
+            setHL(fetchWord());
+            break;
+        case Opcode::LXI_SP:
+            stackPointer = fetchWord();
+            break;
         case Opcode::STAX_B:
             writeMemory(getBC(), regA);
             break;
@@ -159,9 +182,6 @@ int I8080::executeOpcode(Opcode opcode) {
             break;
         case Opcode::DCR_B:
             updateFlagsDcr(getBC() + 1 & 0xFF);
-            break;
-        case Opcode::MVI_B:
-            fetchByte();
             break;
         case Opcode::RLC:
             regA = (regA << 1 | regA >> 7) & 0xFF;

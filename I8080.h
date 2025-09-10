@@ -67,6 +67,7 @@ private:
     static const std::array<std::uint8_t, 256> PARITY_TABLE;
 
     std::uint8_t regA{}, regB{}, regC{}, regD{}, regE{}, regH{}, regL{};
+    std::uint8_t* movRegs[8];
     std::uint16_t stackPointer{}, programCounter{};
 
     bool signFlag{}, parityFlag{}, auxCarryFlag{}, zeroFlag{}, carryFlag{};
@@ -99,7 +100,9 @@ private:
 
     void updateFlagsDcr(std::uint8_t v);
 
-    int executeMov(Opcode opcode);
+    int executeMov(Opcode opcode) const;
+
+    int executeMvi(Opcode opcode);
 
     int executeOpcode(Opcode opcode);
 };
