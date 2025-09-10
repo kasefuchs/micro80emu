@@ -96,9 +96,13 @@ int I8080::executeOpcode(Opcode opcode) {
 
     switch (opcode) {
         case Opcode::NOP:
-        case Opcode::NOP08:
-        case Opcode::NOP10:
-        case Opcode::NOP18:
+        case Opcode::NOP_08:
+        case Opcode::NOP_10:
+        case Opcode::NOP_18:
+        case Opcode::NOP_20:
+        case Opcode::NOP_28:
+        case Opcode::NOP_30:
+        case Opcode::NOP_38:
             break;
         case Opcode::LXI_B:
             setBC(fetchWord());
@@ -132,6 +136,10 @@ int I8080::executeOpcode(Opcode opcode) {
             break;
         case Opcode::HLT:
             halted = true;
+            break;
+        case Opcode::JMP:
+        case Opcode::JMP_C8:
+            programCounter = fetchWord();
             break;
         case Opcode::OUT:
             writeIO(fetchByte(), regA);

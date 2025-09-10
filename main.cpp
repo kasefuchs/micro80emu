@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <fstream>
 #include <iostream>
 
 #include "I8080.h"
@@ -12,7 +13,7 @@ int main() {
         [&](const std::uint16_t addr) { return memory[addr]; },
         [&](const std::uint16_t addr, const std::uint8_t val) { memory[addr] = val; },
         [](const std::uint16_t addr) { return 0; },
-        [](const std::uint16_t addr, const std::uint8_t val) { printf("out: %04X %02X\n",addr,val);}
+        [](const std::uint16_t addr, const std::uint8_t val) { printf("out: %04X %02X\n", addr, val); }
     );
 
     cpu.reset();
