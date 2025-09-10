@@ -2,8 +2,8 @@
 
 #include <cstdio>
 
-I8080::I8080(ReadMem rm, WriteMem wm)
-    : readMemory(std::move(rm)), writeMemory(std::move(wm)) {
+I8080::I8080(ReadMem rm, WriteMem wm, ReadIO rio, WriteIO wio)
+    : readMemory(std::move(rm)), writeMemory(std::move(wm)), readIO(std::move(rio)), writeIO(std::move(wio)) {
 }
 
 int I8080::step() {
@@ -11,37 +11,38 @@ int I8080::step() {
     return executeOpcode(static_cast<Opcode>(fetchByte()));
 }
 
-void I8080::jump(std::uint16_t addr) { programCounter = addr; }
+void I8080::jump(const std::uint16_t addr) { programCounter = addr; }
 
-void I8080::reset(std::uint16_t addr) {
+void I8080::reset(const std::uint16_t addr) {
     interruptEnable = false;
     halted = false;
     programCounter = addr;
 }
 
+bool I8080::isHalted() const { return halted; }
 std::uint16_t I8080::getProgramCounter() const { return programCounter; }
 
 std::uint16_t I8080::getBC() const { return regB << 8 | regC; }
 std::uint16_t I8080::getDE() const { return regD << 8 | regE; }
 std::uint16_t I8080::getHL() const { return regH << 8 | regL; }
 
-void I8080::setBC(std::uint16_t v) {
+void I8080::setBC(const std::uint16_t v) {
     regB = v >> 8;
     regC = v & 0xFF;
 }
 
-void I8080::setDE(std::uint16_t v) {
+void I8080::setDE(const std::uint16_t v) {
     regD = v >> 8;
     regE = v & 0xFF;
 }
 
-void I8080::setHL(std::uint16_t v) {
+void I8080::setHL(const std::uint16_t v) {
     regH = v >> 8;
     regL = v & 0xFF;
 }
 
 std::uint8_t I8080::fetchByte() {
-    auto v = readMemory(programCounter);
+    const auto v = readMemory(programCounter);
     programCounter = programCounter + 1 & 0xFFFF;
     return v;
 }
@@ -50,22 +51,48 @@ std::uint16_t I8080::fetchWord() {
     return fetchByte() | fetchByte() << 8;
 }
 
-void I8080::updateFlagsInr(std::uint8_t v) {
+void I8080::updateFlagsInr(const std::uint8_t v) {
     auxCarryFlag = (v & 0x0F) == 0;
     signFlag = v & 0x80;
-    zeroFlag = (v == 0);
+    zeroFlag = v == 0;
     parityFlag = PARITY_TABLE[v];
 }
 
-void I8080::updateFlagsDcr(std::uint8_t v) {
+void I8080::updateFlagsDcr(const std::uint8_t v) {
     auxCarryFlag = (v & 0x0F) != 0x0F;
     signFlag = v & 0x80;
-    zeroFlag = (v == 0);
+    zeroFlag = v == 0;
     parityFlag = PARITY_TABLE[v];
+}
+
+int I8080::executeMov(Opcode opcode) {
+    std::uint8_t *regs[8] = {&regB, &regC, &regD, &regE, &regH, &regL, nullptr, &regA};
+
+    const int dest = static_cast<int>(opcode) >> 3 & 0x07;
+    const int src = static_cast<int>(opcode) & 0x07;
+
+    auto readReg = [&](const int code) -> uint8_t {
+        if (code == 6) return readMemory(getHL());
+        return *regs[code];
+    };
+
+    auto writeReg = [&](const int code, const uint8_t value) {
+        if (code == 6) {
+            writeMemory(getHL(), value);
+            return 7;
+        }
+
+        *regs[code] = value;
+        return 5;
+    };
+
+    return writeReg(dest, readReg(src));
 }
 
 int I8080::executeOpcode(Opcode opcode) {
     std::uint16_t temp;
+
+    if (opcode >= Opcode::MOV_B_B && opcode <= Opcode::MOV_A_A && opcode != Opcode::HLT) return executeMov(opcode);
 
     switch (opcode) {
         case Opcode::NOP:
@@ -106,17 +133,29 @@ int I8080::executeOpcode(Opcode opcode) {
         case Opcode::HLT:
             halted = true;
             break;
+        case Opcode::OUT:
+            writeIO(fetchByte(), regA);
+            break;
+        case Opcode::IN:
+            regA = readIO(fetchByte());
+            break;
+        case Opcode::DI:
+            interruptEnable = false;
+            break;
+        case Opcode::EI:
+            interruptEnable = true;
+            break;
         default:
-            std::printf("unknown opcode: %02x\n", opcode);
             halted = true;
+            std::printf("unknown opcode: %02x\n", opcode);
             break;
     }
 
     return OPCODE_CYCLES[static_cast<int>(opcode)];
 }
 
-uint8_t I8080::packFlags() const {
-    uint8_t f = 0;
+std::uint8_t I8080::packFlags() const {
+    std::uint8_t f = 0;
     f |= signFlag ? 0x80 : 0x00;
     f |= zeroFlag ? 0x40 : 0x00;
     f |= auxCarryFlag ? 0x10 : 0x00;
@@ -126,6 +165,6 @@ uint8_t I8080::packFlags() const {
 }
 
 void I8080::dumpRegisters() const {
-    printf("A=%02X B=%02X C=%02X D=%02X E=%02X H=%02X L=%02X SP=%04X PC=%04X F=%08X\n",
+    printf("A=%02X B=%02X C=%02X D=%02X E=%02X H=%02X L=%02X SP=%04X PC=%04X F=%02X\n",
            regA, regB, regC, regD, regE, regH, regL, stackPointer, programCounter, packFlags());
 }

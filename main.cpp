@@ -3,14 +3,16 @@
 
 #include "I8080.h"
 
-uint8_t memory[0x10000];
+std::uint8_t memory[0x10000];
 
 int main() {
     std::cin.read(reinterpret_cast<char *>(memory), sizeof(memory));
 
     I8080 cpu(
-        [&](uint16_t addr) { return memory[addr]; },
-        [&](uint16_t addr, uint8_t val) { memory[addr] = val; }
+        [&](const std::uint16_t addr) { return memory[addr]; },
+        [&](const std::uint16_t addr, const std::uint8_t val) { memory[addr] = val; },
+        [](const std::uint16_t addr) { return 0; },
+        [](const std::uint16_t addr, const std::uint8_t val) { printf("out: %04X %02X\n",addr,val);}
     );
 
     cpu.reset();
@@ -24,4 +26,3 @@ int main() {
 
     return 0;
 }
-
