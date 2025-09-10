@@ -1,5 +1,6 @@
 #ifndef MICRO80EMU_I8080_H
 #define MICRO80EMU_I8080_H
+#include <array>
 #include <cstdint>
 #include <functional>
 
@@ -61,34 +62,9 @@ public:
     void dumpRegisters() const;
 
 private:
-    static constexpr int OPCODE_CYCLES[256] = {
-        4, 10, 7, 5, 5, 5, 7, 4, 4, 10, 7, 5, 5, 5, 7, 4, // 0x00..0x0F
-        4, 10, 7, 5, 5, 5, 7, 4, 4, 10, 7, 5, 5, 5, 7, 4, // 0x10..0x1F
-        4, 10, 16, 5, 5, 5, 7, 4, 4, 10, 16, 5, 5, 5, 7, 4, // 0x20..0x2F
-        4, 10, 13, 5, 5, 5, 7, 4, 4, 10, 13, 5, 5, 5, 7, 4, // 0x30..0x3F
-        5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 7, 5, 4, // 0x40..0x4F
-        5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 7, 5, 4, 5, // 0x50..0x5F
-        5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 7, 5, 4, 5, // 0x60..0x6F
-        7, 7, 7, 7, 7, 7, 4, 5, 5, 5, 5, 5, 5, 5, 5, 4, // 0x70..0x7F
-        4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 7, 4, 4, // 0x80..0x8F
-        4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 7, 4, 4, 4, // 0x90..0x9F
-        4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 7, 4, 4, 4, // 0xA0..0xAF
-        4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 7, 4, 4, 4, // 0xB0..0xBF
-        5, 11, 10, 17, 11, 7, 11, 5, 10, 17, 11, 11, 17, 7, 11, 5, // 0xC0..0xCF
-        5, 10, 10, 17, 11, 7, 11, 5, 10, 17, 11, 11, 17, 7, 11, 5, // 0xD0..0xDF
-        5, 11, 10, 17, 11, 7, 11, 5, 10, 5, 11, 17, 11, 7, 11, 5, // 0xE0..0xEF
-        5, 11, 10, 17, 11, 7, 11, 5, 10, 5, 11, 17, 11, 7, 11, 5 // 0xF0..0xFF
-    };
+    static const int OPCODE_CYCLES[256];
 
-    static constexpr std::array<std::uint8_t, 256> PARITY_TABLE = [] {
-        std::array<std::uint8_t, 256> arr{};
-        for (int i = 0; i < 256; i++) {
-            int bits = 0;
-            for (int j = 0; j < 8; j++) if (i & 1 << j) bits++;
-            arr[i] = bits % 2 == 0;
-        }
-        return arr;
-    }();
+    static const std::array<std::uint8_t, 256> PARITY_TABLE;
 
     std::uint8_t regA{}, regB{}, regC{}, regD{}, regE{}, regH{}, regL{};
     std::uint16_t stackPointer{}, programCounter{};
