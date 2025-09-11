@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <iostream>
 
-const std::array<std::uint8_t, 256> I8080::PARITY_TABLE = {
+const std::array<I8080::byte, 256> I8080::PARITY_TABLE = {
     {
         1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
         0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
@@ -43,111 +43,146 @@ const int I8080::OPCODE_CYCLES[256] = {
     5, 11, 10, 17, 11, 7, 11, 5, 10, 5, 11, 17, 11, 7, 11, 5 // 0xF0..0xFF
 };
 
-I8080::I8080(ReadMem rm, WriteMem wm, ReadIO rio, WriteIO wio)
-    : movRegs{&regB, &regC, &regD, &regE, &regH, &regL, nullptr, &regA},
+I8080::I8080(ReadMemory rm, WriteMemory wm, ReadIO rio, WriteIO wio)
+    : regs{&regB, &regC, &regD, &regE, &regH, &regL, nullptr, &regA},
       readMemory(std::move(rm)), writeMemory(std::move(wm)),
       readIO(std::move(rio)), writeIO(std::move(wio)) {
 }
 
 int I8080::step() {
     if (halted) return executeOpcode(Opcode::NOP);
-    return executeOpcode(static_cast<Opcode>(fetchByte()));
+    return executeOpcode(static_cast<Opcode>(popCommandByte()));
 }
 
-void I8080::jump(const std::uint16_t addr) { programCounter = addr; }
+void I8080::jump(const address addr) { programCounter = addr; }
 
-void I8080::reset(const std::uint16_t addr) {
+void I8080::reset(const address addr) {
     interruptEnable = false;
     halted = false;
     programCounter = addr;
 }
 
 bool I8080::isHalted() const { return halted; }
-std::uint16_t I8080::getProgramCounter() const { return programCounter; }
+I8080::address I8080::getProgramCounter() const { return programCounter; }
 
-std::uint16_t I8080::getBC() const { return regB << 8 | regC; }
-std::uint16_t I8080::getDE() const { return regD << 8 | regE; }
-std::uint16_t I8080::getHL() const { return regH << 8 | regL; }
+I8080::word I8080::getBC() const { return regB << 8 | regC; }
+I8080::word I8080::getDE() const { return regD << 8 | regE; }
+I8080::word I8080::getHL() const { return regH << 8 | regL; }
 
-void I8080::setBC(const std::uint16_t v) {
+void I8080::setBC(const word v) {
     regB = v >> 8;
     regC = v & 0xFF;
 }
 
-void I8080::setDE(const std::uint16_t v) {
+void I8080::setDE(const word v) {
     regD = v >> 8;
     regE = v & 0xFF;
 }
 
-void I8080::setHL(const std::uint16_t v) {
+void I8080::setHL(const word v) {
     regH = v >> 8;
     regL = v & 0xFF;
 }
 
-std::uint8_t I8080::fetchByte() {
-    const auto v = readMemory(programCounter);
+I8080::byte I8080::popCommandByte() {
+    const byte v = readMemory(programCounter);
     programCounter = programCounter + 1 & 0xFFFF;
     return v;
 }
 
-std::uint16_t I8080::fetchWord() {
-    return fetchByte() | fetchByte() << 8;
+I8080::word I8080::popCommandWord() {
+    return popCommandByte() | popCommandByte() << 8;
 }
 
-void I8080::updateFlagsInr(const std::uint8_t v) {
+I8080::word I8080::readMemoryWord(const address addr) const {
+    return readMemory(addr) | readMemory(addr + 1 & 0xFFFF) << 8;
+}
+
+void I8080::writeMemoryWord(const address addr, const word v) const {
+    writeMemory(addr, v & 0xFF);
+    writeMemory(addr + 1 & 0xFFFF, v >> 8);
+}
+
+void I8080::pushStack(const word v) {
+    stackPointer = stackPointer - 2 & 0xFFFF;
+    writeMemoryWord(stackPointer, v);
+}
+
+I8080::word I8080::popStack() {
+    const word v = readMemoryWord(stackPointer);
+    stackPointer = stackPointer + 2 & 0xFFFF;
+    return v;
+}
+
+void I8080::updateFlagsAfterIncrease(const byte v) {
     auxCarryFlag = (v & 0x0F) == 0;
     signFlag = v & 0x80;
     zeroFlag = v == 0;
     parityFlag = PARITY_TABLE[v];
 }
 
-void I8080::updateFlagsDcr(const std::uint8_t v) {
+void I8080::updateFlagsAfterDecrease(const byte v) {
     auxCarryFlag = (v & 0x0F) != 0x0F;
     signFlag = v & 0x80;
     zeroFlag = v == 0;
     parityFlag = PARITY_TABLE[v];
 }
 
-int I8080::executeMov(Opcode opcode) const {
+int I8080::executeMove(Opcode opcode) const {
     const int dest = static_cast<int>(opcode) >> 3 & 0x07;
     const int src = static_cast<int>(opcode) & 0x07;
 
-    auto readReg = [&](const int code) -> uint8_t {
-        if (code == 6) return readMemory(getHL());
-        return *movRegs[code];
+    auto readReg = [&](const int code) -> byte {
+        if (code == REG_INDEX_M) return readMemory(getHL());
+        return *regs[code];
     };
 
-    auto writeReg = [&](const int code, const uint8_t value) {
-        if (code == 6) {
+    auto writeReg = [&](const int code, const byte value) -> int {
+        if (code == REG_INDEX_M) {
             writeMemory(getHL(), value);
             return 7;
         }
 
-        *movRegs[code] = value;
+        *regs[code] = value;
         return 5;
     };
 
     return writeReg(dest, readReg(src));
 }
 
-int I8080::executeMvi(Opcode opcode) {
+int I8080::executeMoveImmediate(Opcode opcode) {
     const int dest = static_cast<int>(opcode) >> 3 & 0x07;
-    const uint8_t value = fetchByte();
+    const byte value = popCommandByte();
 
-    if (dest == 6) {
+    if (dest == REG_INDEX_M) {
         writeMemory(getHL(), value);
         return 10;
     }
 
-    *movRegs[dest] = value;
+    *regs[dest] = value;
     return 7;
 }
 
-int I8080::executeOpcode(Opcode opcode) {
-    std::uint16_t temp;
+int I8080::executeCompare(Opcode opcode) {
+    const int src = static_cast<int>(opcode) & 0x07;
+    const byte value = src == REG_INDEX_M ? readMemory(getHL()) : *regs[src];
 
-    if ((static_cast<int>(opcode) & 0xC7) == 0x06) return executeMvi(opcode);
-    if ((static_cast<int>(opcode) & 0xC0) == 0x40 && opcode != Opcode::HLT) return executeMov(opcode);
+    const byte diff = regA - value;
+    const byte result = diff & 0xFF;
+
+    carryFlag = diff > 0xFF;
+    auxCarryFlag = ((regA ^ value ^ result) & 0x10) != 0;
+    signFlag = (result & 0x80) != 0;
+    zeroFlag = result == 0;
+    parityFlag = PARITY_TABLE[result];
+
+    return src == REG_INDEX_M ? 7 : 4;
+}
+
+int I8080::executeOpcode(Opcode opcode) {
+    if ((static_cast<int>(opcode) & 0xF8) == 0xB8) return executeCompare(opcode);
+    if ((static_cast<int>(opcode) & 0xC7) == 0x06) return executeMoveImmediate(opcode);
+    if ((static_cast<int>(opcode) & 0xC0) == 0x40 && opcode != Opcode::HLT) return executeMove(opcode);
 
     switch (opcode) {
         case Opcode::NOP:
@@ -160,16 +195,16 @@ int I8080::executeOpcode(Opcode opcode) {
         case Opcode::NOP_38:
             break;
         case Opcode::LXI_B:
-            setBC(fetchWord());
+            setBC(popCommandWord());
             break;
         case Opcode::LXI_D:
-            setDE(fetchWord());
+            setDE(popCommandWord());
             break;
         case Opcode::LXI_H:
-            setHL(fetchWord());
+            setHL(popCommandWord());
             break;
         case Opcode::LXI_SP:
-            stackPointer = fetchWord();
+            stackPointer = popCommandWord();
             break;
         case Opcode::STAX_B:
             writeMemory(getBC(), regA);
@@ -178,20 +213,21 @@ int I8080::executeOpcode(Opcode opcode) {
             setBC(getBC() + 1 & 0xFFFF);
             break;
         case Opcode::INR_B:
-            updateFlagsInr(getBC() + 1 & 0xFF);
+            updateFlagsAfterIncrease(getBC() + 1 & 0xFF);
             break;
         case Opcode::DCR_B:
-            updateFlagsDcr(getBC() + 1 & 0xFF);
+            updateFlagsAfterDecrease(getBC() + 1 & 0xFF);
             break;
         case Opcode::RLC:
             regA = (regA << 1 | regA >> 7) & 0xFF;
             carryFlag = (regA & 1) != 0;
             break;
-        case Opcode::DAD_B:
-            temp = getHL() + getBC();
+        case Opcode::DAD_B: {
+            const word temp = getHL() + getBC();
             setHL(temp & 0xFFFF);
             carryFlag = temp > 0xFFFF;
             break;
+        }
         case Opcode::LDAX_B:
             regA = readMemory(getBC());
             break;
@@ -200,13 +236,35 @@ int I8080::executeOpcode(Opcode opcode) {
             break;
         case Opcode::JMP:
         case Opcode::JMP_C8:
-            programCounter = fetchWord();
+            programCounter = popCommandWord();
+            break;
+        case Opcode::CALL:
+        case Opcode::CALL_DD:
+        case Opcode::CALL_ED:
+        case Opcode::CALL_FD: {
+            const word temp = popCommandWord();
+            pushStack(programCounter);
+            programCounter = temp;
+            break;
+        }
+        case Opcode::RNZ:
+            if (zeroFlag) return 5;
+            programCounter = popStack();
+            return 11;
+        case Opcode::JNZ: {
+            const word temp = popCommandWord();
+            if (!zeroFlag) programCounter = temp;
+            break;
+        }
+        case Opcode::RET:
+        case Opcode::RET_D9:
+            programCounter = popStack();
             break;
         case Opcode::OUT:
-            writeIO(fetchByte(), regA);
+            writeIO(popCommandByte(), regA);
             break;
         case Opcode::IN:
-            regA = readIO(fetchByte());
+            regA = readIO(popCommandByte());
             break;
         case Opcode::DI:
             interruptEnable = false;
@@ -221,19 +279,4 @@ int I8080::executeOpcode(Opcode opcode) {
     }
 
     return OPCODE_CYCLES[static_cast<int>(opcode)];
-}
-
-std::uint8_t I8080::packFlags() const {
-    std::uint8_t f = 0;
-    f |= signFlag ? 0x80 : 0x00;
-    f |= zeroFlag ? 0x40 : 0x00;
-    f |= auxCarryFlag ? 0x10 : 0x00;
-    f |= parityFlag ? 0x04 : 0x00;
-    f |= carryFlag ? 0x01 : 0x00;
-    return f;
-}
-
-void I8080::dumpRegisters() const {
-    printf("A=%02X B=%02X C=%02X D=%02X E=%02X H=%02X L=%02X SP=%04X PC=%04X F=%02X\n",
-           regA, regB, regC, regD, regE, regH, regL, stackPointer, programCounter, packFlags());
 }

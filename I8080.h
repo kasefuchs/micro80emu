@@ -7,12 +7,16 @@
 
 class I8080 {
 public:
-    using ReadMem = std::function<std::uint8_t(std::uint16_t)>;
-    using WriteMem = std::function<void(std::uint16_t, std::uint8_t)>;
-    using ReadIO = std::function<std::uint8_t(std::uint16_t)>;
-    using WriteIO = std::function<void(std::uint16_t, std::uint8_t)>;
+    using byte = std::uint8_t;
+    using word = std::uint16_t;
+    using address = std::uint16_t;
 
-    enum class Opcode : std::uint8_t {
+    using ReadMemory = std::function<byte(address)>;
+    using WriteMemory = std::function<void(address, byte)>;
+    using ReadIO = std::function<byte(address)>;
+    using WriteIO = std::function<void(address, byte)>;
+
+    enum class Opcode : byte {
         NOP, LXI_B, STAX_B, INX_B, INR_B, DCR_B, MVI_B, RLC,
         NOP_08, DAD_B, LDAX_B, DCX_B, INR_C, DCR_C, MVI_C, RRC,
         NOP_10, LXI_D, STAX_D, INX_D, INR_D, DCR_D, MVI_D, RAL,
@@ -47,62 +51,70 @@ public:
         RM, SPHL, JM, EI, CM, CALL_FD, CPI, RST_7,
     };
 
-    I8080(ReadMem rm, WriteMem wm, ReadIO rio = nullptr, WriteIO wio = nullptr);
+    I8080(ReadMemory rm, WriteMemory wm, ReadIO rio = nullptr, WriteIO wio = nullptr);
 
     int step();
 
-    void jump(std::uint16_t addr);
+    void jump(address addr);
 
-    void reset(std::uint16_t addr = 0);
+    void reset(address addr = 0x0);
 
     [[nodiscard]] bool isHalted() const;
 
-    [[nodiscard]] std::uint16_t getProgramCounter() const;
-
-    void dumpRegisters() const;
+    [[nodiscard]] address getProgramCounter() const;
 
 private:
     static const int OPCODE_CYCLES[256];
 
-    static const std::array<std::uint8_t, 256> PARITY_TABLE;
+    static const std::array<byte, 256> PARITY_TABLE;
 
-    std::uint8_t regA{}, regB{}, regC{}, regD{}, regE{}, regH{}, regL{};
-    std::uint8_t* movRegs[8];
-    std::uint16_t stackPointer{}, programCounter{};
+    static constexpr int REG_INDEX_M = 6;
+
+    byte regA{}, regB{}, regC{}, regD{}, regE{}, regH{}, regL{};
+    byte* regs[8];
+    address stackPointer{}, programCounter{};
 
     bool signFlag{}, parityFlag{}, auxCarryFlag{}, zeroFlag{}, carryFlag{};
     bool interruptEnable{}, halted{};
 
-    ReadMem readMemory;
-    WriteMem writeMemory;
+    ReadMemory readMemory;
+    WriteMemory writeMemory;
     ReadIO readIO;
     WriteIO writeIO;
 
-    [[nodiscard]] std::uint16_t getBC() const;
+    [[nodiscard]] word getBC() const;
 
-    [[nodiscard]] std::uint16_t getDE() const;
+    [[nodiscard]] word getDE() const;
 
-    [[nodiscard]] std::uint16_t getHL() const;
+    [[nodiscard]] word getHL() const;
 
-    void setBC(std::uint16_t v);
+    void setBC(word v);
 
-    void setDE(std::uint16_t v);
+    void setDE(word v);
 
-    void setHL(std::uint16_t v);
+    void setHL(word v);
 
-    std::uint8_t fetchByte();
+    byte popCommandByte();
 
-    std::uint16_t fetchWord();
+    word popCommandWord();
 
-    [[nodiscard]] std::uint8_t packFlags() const;
+    word readMemoryWord(address addr) const;
 
-    void updateFlagsInr(std::uint8_t v);
+    void writeMemoryWord(address addr, word v) const;
 
-    void updateFlagsDcr(std::uint8_t v);
+    void pushStack(word v);
 
-    int executeMov(Opcode opcode) const;
+    word popStack();
 
-    int executeMvi(Opcode opcode);
+    void updateFlagsAfterIncrease(byte v);
+
+    void updateFlagsAfterDecrease(byte v);
+
+    int executeMove(Opcode opcode) const;
+
+    int executeMoveImmediate(Opcode opcode);
+
+    int executeCompare(Opcode opcode);
 
     int executeOpcode(Opcode opcode);
 };

@@ -22,7 +22,6 @@ int main() {
     do {
         cycles += cpu.step();
         printf("cycles: %d\n", cycles);
-        cpu.dumpRegisters();
     } while (!cpu.isHalted());
 
     return 0;
