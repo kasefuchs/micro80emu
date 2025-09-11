@@ -100,6 +100,14 @@ private:
 
     word readMemoryWord(address addr) const;
 
+    static int getDestFromOpcode(Opcode opcode) ;
+
+    static int getSrcFromOpcode(Opcode opcode);
+
+    byte readRegOrMemory(int code) const;
+
+    void writeRegOrMemory(int code, byte value) const;
+
     void writeMemoryWord(address addr, word v) const;
 
     void pushStack(word v);
@@ -110,11 +118,21 @@ private:
 
     void updateFlagsAfterDecrease(byte v);
 
+    std::uint8_t packFlags() const;
+
     int executeMove(Opcode opcode) const;
+
+    int executeDecrement(Opcode opcode);
 
     int executeMoveImmediate(Opcode opcode);
 
     int executeCompare(Opcode opcode);
+
+    int executeOr(Opcode opcode);
+
+    int executeIncrementPair(Opcode opcode);
+
+    int executePush(Opcode opcode);
 
     int executeOpcode(Opcode opcode);
 };
