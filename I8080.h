@@ -59,6 +59,8 @@ public:
 
     void reset(address addr = 0x0);
 
+    [[nodiscard]] int getCycles() const;
+
     [[nodiscard]] bool isHalted() const;
 
     [[nodiscard]] address getProgramCounter() const;
@@ -70,12 +72,21 @@ private:
 
     static constexpr int REG_INDEX_M = 6;
 
+    enum class RegisterPair : int {
+        BC,
+        DE,
+        HL,
+        SP_PSW
+    };
+
     byte regA{}, regB{}, regC{}, regD{}, regE{}, regH{}, regL{};
-    byte* regs[8];
+    byte *regs[8];
     address stackPointer{}, programCounter{};
 
     bool signFlag{}, parityFlag{}, auxCarryFlag{}, zeroFlag{}, carryFlag{};
     bool interruptEnable{}, halted{};
+
+    int cycles{};
 
     ReadMemory readMemory;
     WriteMemory writeMemory;
@@ -100,9 +111,11 @@ private:
 
     word readMemoryWord(address addr) const;
 
-    static int getDestFromOpcode(Opcode opcode) ;
+    static int getDestFromOpcode(Opcode opcode);
 
     static int getSrcFromOpcode(Opcode opcode);
+
+    static RegisterPair getRegisterPairFromOpcode(Opcode opcode);
 
     byte readRegOrMemory(int code) const;
 
@@ -118,7 +131,9 @@ private:
 
     void updateFlagsAfterDecrease(byte v);
 
-    std::uint8_t packFlags() const;
+    byte getByteFromFlags() const;
+
+    void setFlagsFromByte(byte field);
 
     int executeMove(Opcode opcode) const;
 
@@ -130,9 +145,17 @@ private:
 
     int executeOr(Opcode opcode);
 
+    int executeSubtractWithBorrow(Opcode opcode);
+
     int executeIncrementPair(Opcode opcode);
 
     int executePush(Opcode opcode);
+
+    int executeDoubleAdd(Opcode opcode);
+
+    int executeConditionalJump(Opcode opcode, bool condition);
+
+    int executePop(Opcode opcode);
 
     int executeOpcode(Opcode opcode);
 };

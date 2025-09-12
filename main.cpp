@@ -13,16 +13,12 @@ int main() {
         [&](const std::uint16_t addr) { return memory[addr]; },
         [&](const std::uint16_t addr, const std::uint8_t val) { memory[addr] = val; },
         [](const std::uint16_t addr) { return 0x82; },
-        [](const std::uint16_t addr, const std::uint8_t val) { printf("out: %04X %02X\n", addr, val); }
+        [](const std::uint16_t addr, const std::uint8_t val) {
+        }
     );
 
-    cpu.reset();
-
-    int cycles = 0;
-    do {
-        cycles += cpu.step();
-        printf("cycles: %d\n", cycles);
-    } while (!cpu.isHalted());
+    for (cpu.reset(0xF800); !cpu.isHalted() && cpu.getCycles() <= 10000; cpu.step()) {
+    }
 
     return 0;
 }

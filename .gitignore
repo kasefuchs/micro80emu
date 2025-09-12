@@ -10,3 +10,7 @@
 # CMake
 cmake-build/
 cmake-build-*/
+
+# --- Runtime ---
+# Images
+*.bin
