@@ -70,14 +70,9 @@ private:
 
     static const std::array<byte, 256> PARITY_TABLE;
 
-    static constexpr int REG_INDEX_M = 6;
+    enum class Register : int { B, C, D, E, H, L, M, A };
 
-    enum class RegisterPair : int {
-        BC,
-        DE,
-        HL,
-        SP_PSW
-    };
+    enum class RegisterPair : int { BC, DE, HL, SP_PSW };
 
     byte regA{}, regB{}, regC{}, regD{}, regE{}, regH{}, regL{};
     byte *regs[8];
@@ -111,15 +106,15 @@ private:
 
     word readMemoryWord(address addr) const;
 
-    static int getDestFromOpcode(Opcode opcode);
+    static Register getDestFromOpcode(Opcode opcode);
 
-    static int getSrcFromOpcode(Opcode opcode);
+    static Register getSrcFromOpcode(Opcode opcode);
 
     static RegisterPair getRegisterPairFromOpcode(Opcode opcode);
 
-    byte readRegOrMemory(int code) const;
+    byte readRegOrMemory(Register reg) const;
 
-    void writeRegOrMemory(int code, byte value) const;
+    void writeRegOrMemory(Register reg, byte value) const;
 
     void writeMemoryWord(address addr, word v) const;
 

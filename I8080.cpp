@@ -98,26 +98,26 @@ I8080::word I8080::readMemoryWord(const address addr) const {
     return readMemory(addr) | readMemory(addr + 1 & 0xFFFF) << 8;
 }
 
-int I8080::getDestFromOpcode(Opcode opcode) {
-    return static_cast<int>(opcode) >> 3 & 0x07;
+I8080::Register I8080::getDestFromOpcode(Opcode opcode) {
+    return static_cast<Register>(static_cast<int>(opcode) >> 3 & 0x07);
 }
 
-int I8080::getSrcFromOpcode(Opcode opcode) {
-    return static_cast<int>(opcode) & 0x07;
+I8080::Register I8080::getSrcFromOpcode(Opcode opcode) {
+    return static_cast<Register>(static_cast<int>(opcode) & 0x07);
 }
 
 I8080::RegisterPair I8080::getRegisterPairFromOpcode(Opcode opcode) {
     return static_cast<RegisterPair>(static_cast<int>(opcode) >> 4 & 0x03);
 }
 
-I8080::byte I8080::readRegOrMemory(const int code) const {
-    if (code == REG_INDEX_M) return readMemory(getHL());
-    return *regs[code];
+I8080::byte I8080::readRegOrMemory(const Register reg) const {
+    if (reg == Register::M) return readMemory(getHL());
+    return *regs[static_cast<int>(reg)];
 }
 
-void I8080::writeRegOrMemory(const int code, const byte value) const {
-    if (code == REG_INDEX_M) writeMemory(getHL(), value);
-    else *regs[code] = value;
+void I8080::writeRegOrMemory(const Register reg, const byte value) const {
+    if (reg == Register::M) writeMemory(getHL(), value);
+    else *regs[static_cast<int>(reg)] = value;
 }
 
 void I8080::writeMemoryWord(const address addr, const word v) const {
@@ -169,16 +169,16 @@ void I8080::setFlagsFromByte(const byte field) {
 }
 
 int I8080::executeMove(const Opcode opcode) const {
-    const int src = getSrcFromOpcode(opcode);
-    const int dest = getDestFromOpcode(opcode);
+    const Register src = getSrcFromOpcode(opcode);
+    const Register dest = getDestFromOpcode(opcode);
 
     writeRegOrMemory(dest, readRegOrMemory(src));
 
-    return dest == REG_INDEX_M ? 7 : 5;
+    return dest == Register::M ? 7 : 5;
 }
 
 int I8080::executeDecrement(const Opcode opcode) {
-    const int dest = getDestFromOpcode(opcode);
+    const Register dest = getDestFromOpcode(opcode);
 
     const byte oldValue = readRegOrMemory(dest);
     const byte newValue = oldValue - 1;
@@ -190,24 +190,24 @@ int I8080::executeDecrement(const Opcode opcode) {
 
     writeRegOrMemory(dest, newValue);
 
-    return dest == REG_INDEX_M ? 10 : 5;
+    return dest == Register::M ? 10 : 5;
 }
 
 int I8080::executeMoveImmediate(const Opcode opcode) {
-    const int dest = getDestFromOpcode(opcode);
+    const Register dest = getDestFromOpcode(opcode);
     const byte value = popCommandByte();
 
     writeRegOrMemory(dest, value);
 
-    return dest == REG_INDEX_M ? 10 : 7;
+    return dest == Register::M ? 10 : 7;
 }
 
 int I8080::executeCompare(const Opcode opcode) {
     const byte temp = regA;
-    const int src = getSrcFromOpcode(opcode);
+    const Register src = getSrcFromOpcode(opcode);
     const byte value = readRegOrMemory(src);
 
-    auxCarryFlag = (regA & 0x0F) >= ((value & 0x0F));
+    auxCarryFlag = (regA & 0x0F) >= (value & 0x0F);
     const int diff = regA - value;
     regA = diff & 0xFF;
     carryFlag = (diff & 0x100) != 0;
@@ -217,11 +217,11 @@ int I8080::executeCompare(const Opcode opcode) {
 
     regA = temp;
 
-    return src == REG_INDEX_M ? 7 : 4;
+    return src == Register::M ? 7 : 4;
 }
 
 int I8080::executeOr(const Opcode opcode) {
-    const int src = getSrcFromOpcode(opcode);
+    const Register src = getSrcFromOpcode(opcode);
     const byte value = readRegOrMemory(src);
 
     regA |= value;
@@ -232,11 +232,11 @@ int I8080::executeOr(const Opcode opcode) {
     zeroFlag = regA == 0;
     parityFlag = PARITY_TABLE[regA];
 
-    return src == REG_INDEX_M ? 7 : 4;
+    return src == Register::M ? 7 : 4;
 }
 
 int I8080::executeSubtractWithBorrow(const Opcode opcode) {
-    const int src = getSrcFromOpcode(opcode);
+    const Register src = getSrcFromOpcode(opcode);
     const byte value = readRegOrMemory(src);
 
     auxCarryFlag = (regA & 0x0F) >= (value & 0x0F) - (carryFlag ? 1 : 0);
@@ -247,7 +247,7 @@ int I8080::executeSubtractWithBorrow(const Opcode opcode) {
     zeroFlag = regA == 0;
     parityFlag = PARITY_TABLE[regA];
 
-    return src == REG_INDEX_M ? 7 : 4;
+    return src == Register::M ? 7 : 4;
 }
 
 int I8080::executeIncrementPair(const Opcode opcode) {
@@ -347,10 +347,6 @@ int I8080::executeConditionalJump(const Opcode opcode, const bool condition) {
 }
 
 int I8080::executeOpcode(Opcode opcode) {
-    printf("%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n", cycles, opcode, programCounter, stackPointer, regB,
-           regC, regD,
-           regE, regH, regL, regA, signFlag, parityFlag, auxCarryFlag, zeroFlag, carryFlag);
-
     if ((static_cast<int>(opcode) & 0xCF) == 0x03) return executeIncrementPair(opcode);
     if ((static_cast<int>(opcode) & 0xCF) == 0x09) return executeDoubleAdd(opcode);
     if ((static_cast<int>(opcode) & 0xC7) == 0x05) return executeDecrement(opcode);
