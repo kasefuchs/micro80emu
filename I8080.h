@@ -124,11 +124,15 @@ private:
 
     void updateFlagsAfterIncrease(byte v);
 
-    void updateFlagsAfterDecrease(byte v);
-
     byte getByteFromFlags() const;
 
     void setFlagsFromByte(byte field);
+
+    void setLogicalFlags();
+
+    void addWithFlags(byte value, bool withCarry);
+
+    void subtractWithFlags(byte value, bool withBorrow);
 
     int executeMove(Opcode opcode) const;
 
@@ -140,7 +144,13 @@ private:
 
     int executeOr(Opcode opcode);
 
+    int executeExclusiveOr(Opcode opcode);
+
     int executeSubtractWithBorrow(Opcode opcode);
+
+    int executeAdd(Opcode opcode);
+
+    int executeAddWithCarry(Opcode opcode);
 
     int executeIncrementPair(Opcode opcode);
 

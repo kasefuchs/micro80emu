@@ -143,13 +143,6 @@ void I8080::updateFlagsAfterIncrease(const byte v) {
     parityFlag = PARITY_TABLE[v];
 }
 
-void I8080::updateFlagsAfterDecrease(const byte v) {
-    auxCarryFlag = (v & 0x0F) != 0x0F;
-    signFlag = v & 0x80;
-    zeroFlag = v == 0;
-    parityFlag = PARITY_TABLE[v];
-}
-
 I8080::byte I8080::getByteFromFlags() const {
     byte field = 2;
     field |= signFlag ? 0x80 : 0x00;
@@ -168,27 +161,61 @@ void I8080::setFlagsFromByte(const byte field) {
     carryFlag = (field & 0x01) != 0;
 }
 
+void I8080::setLogicalFlags() {
+    auxCarryFlag = false;
+    signFlag = (regA & 0x80) != 0;
+    zeroFlag = regA == 0;
+    parityFlag = PARITY_TABLE[regA];
+    carryFlag = false;
+}
+
+void I8080::addWithFlags(const byte value, const bool withCarry) {
+    const int carry = withCarry && carryFlag ? 1 : 0;
+
+    auxCarryFlag = (regA & 0x0F) + (value & 0x0F) + carry > 0x0F;
+
+    const int sum = regA + value + carry;
+    regA = sum & 0xFF;
+
+    carryFlag = (sum & 0x100) != 0;
+    signFlag = (regA & 0x80) != 0;
+    zeroFlag = regA == 0;
+    parityFlag = PARITY_TABLE[regA];
+}
+
+void I8080::subtractWithFlags(const byte value, const bool withBorrow) {
+    const int borrow = withBorrow && carryFlag ? 1 : 0;
+
+    auxCarryFlag = (regA & 0x0F) >= (value & 0x0F) + borrow;
+
+    const int diff = regA - value - borrow;
+    regA = diff & 0xFF;
+
+    carryFlag = (diff & 0x100) != 0;
+    signFlag = (regA & 0x80) != 0;
+    zeroFlag = regA == 0;
+    parityFlag = PARITY_TABLE[regA];
+}
+
 int I8080::executeMove(const Opcode opcode) const {
     const Register src = getSrcFromOpcode(opcode);
     const Register dest = getDestFromOpcode(opcode);
 
     writeRegOrMemory(dest, readRegOrMemory(src));
 
-    return dest == Register::M ? 7 : 5;
+    return src == Register::M || dest == Register::M ? 7 : 5;
 }
 
 int I8080::executeDecrement(const Opcode opcode) {
     const Register dest = getDestFromOpcode(opcode);
 
-    const byte oldValue = readRegOrMemory(dest);
-    const byte newValue = oldValue - 1;
+    const int value = readRegOrMemory(dest) - 1 & 0xFF;
+    writeRegOrMemory(dest, value);
 
-    auxCarryFlag = (oldValue & 0x0F) == 0x00;
-    signFlag = (newValue & 0x80) != 0;
-    zeroFlag = newValue == 0;
-    parityFlag = PARITY_TABLE[newValue];
-
-    writeRegOrMemory(dest, newValue);
+    auxCarryFlag = (value & 0x0F) != 0x0F;
+    signFlag = (value & 0x80) != 0;
+    zeroFlag = value == 0;
+    parityFlag = PARITY_TABLE[value];
 
     return dest == Register::M ? 10 : 5;
 }
@@ -203,18 +230,11 @@ int I8080::executeMoveImmediate(const Opcode opcode) {
 }
 
 int I8080::executeCompare(const Opcode opcode) {
-    const byte temp = regA;
     const Register src = getSrcFromOpcode(opcode);
     const byte value = readRegOrMemory(src);
 
-    auxCarryFlag = (regA & 0x0F) >= (value & 0x0F);
-    const int diff = regA - value;
-    regA = diff & 0xFF;
-    carryFlag = (diff & 0x100) != 0;
-    signFlag = (regA & 0x80) != 0;
-    zeroFlag = (regA == 0);
-    parityFlag = PARITY_TABLE[regA];
-
+    const byte temp = regA;
+    subtractWithFlags(value, false);
     regA = temp;
 
     return src == Register::M ? 7 : 4;
@@ -225,12 +245,17 @@ int I8080::executeOr(const Opcode opcode) {
     const byte value = readRegOrMemory(src);
 
     regA |= value;
+    setLogicalFlags();
 
-    carryFlag = false;
-    auxCarryFlag = false;
-    signFlag = (regA & 0x80) != 0;
-    zeroFlag = regA == 0;
-    parityFlag = PARITY_TABLE[regA];
+    return src == Register::M ? 7 : 4;
+}
+
+int I8080::executeExclusiveOr(const Opcode opcode) {
+    const Register src = getSrcFromOpcode(opcode);
+    const byte value = readRegOrMemory(src);
+
+    regA ^= value;
+    setLogicalFlags();
 
     return src == Register::M ? 7 : 4;
 }
@@ -239,13 +264,25 @@ int I8080::executeSubtractWithBorrow(const Opcode opcode) {
     const Register src = getSrcFromOpcode(opcode);
     const byte value = readRegOrMemory(src);
 
-    auxCarryFlag = (regA & 0x0F) >= (value & 0x0F) - (carryFlag ? 1 : 0);
-    const int diff = regA - value - (carryFlag ? 1 : 0);
-    regA = diff & 0xFF;
-    carryFlag = (diff & 0x100) != 0;
-    signFlag = (regA & 0x80) != 0;
-    zeroFlag = regA == 0;
-    parityFlag = PARITY_TABLE[regA];
+    subtractWithFlags(value, true);
+
+    return src == Register::M ? 7 : 4;
+}
+
+int I8080::executeAdd(const Opcode opcode) {
+    const Register src = getSrcFromOpcode(opcode);
+    const byte value = readRegOrMemory(src);
+
+    addWithFlags(value, false);
+
+    return src == Register::M ? 7 : 4;
+}
+
+int I8080::executeAddWithCarry(const Opcode opcode) {
+    const Register src = getSrcFromOpcode(opcode);
+    const byte value = readRegOrMemory(src);
+
+    addWithFlags(value, true);
 
     return src == Register::M ? 7 : 4;
 }
@@ -316,7 +353,6 @@ int I8080::executePop(const Opcode opcode) {
 
 int I8080::executeDoubleAdd(const Opcode opcode) {
     word value = 0;
-
     switch (getRegisterPairFromOpcode(opcode)) {
         case RegisterPair::BC:
             value = getBC();
@@ -347,6 +383,8 @@ int I8080::executeConditionalJump(const Opcode opcode, const bool condition) {
 }
 
 int I8080::executeOpcode(Opcode opcode) {
+    if ((static_cast<int>(opcode) & 0xF8) == 0x80) return executeAdd(opcode);
+    if ((static_cast<int>(opcode) & 0xF8) == 0x88) return executeAddWithCarry(opcode);
     if ((static_cast<int>(opcode) & 0xCF) == 0x03) return executeIncrementPair(opcode);
     if ((static_cast<int>(opcode) & 0xCF) == 0x09) return executeDoubleAdd(opcode);
     if ((static_cast<int>(opcode) & 0xC7) == 0x05) return executeDecrement(opcode);
@@ -354,6 +392,7 @@ int I8080::executeOpcode(Opcode opcode) {
     if ((static_cast<int>(opcode) & 0xC7) == 0x06) return executeMoveImmediate(opcode);
     if ((static_cast<int>(opcode) & 0xC0) == 0x40 && opcode != Opcode::HLT) return executeMove(opcode);
     if ((static_cast<int>(opcode) & 0xF8) == 0xB0) return executeOr(opcode);
+    if ((static_cast<int>(opcode) & 0xF8) == 0xA8) return executeExclusiveOr(opcode);
     if ((static_cast<int>(opcode) & 0xCF) == 0xC5) return executePush(opcode);
     if ((static_cast<int>(opcode) & 0xCF) == 0xC1) return executePop(opcode);
     if ((static_cast<int>(opcode) & 0xF8) == 0x98) return executeSubtractWithBorrow(opcode);
@@ -383,6 +422,22 @@ int I8080::executeOpcode(Opcode opcode) {
         case Opcode::LXI_SP:
             stackPointer = popCommandWord();
             break;
+        case Opcode::CMA:
+            regA ^= 0xFF;
+            break;
+        case Opcode::CMC:
+            carryFlag = !carryFlag;
+            break;
+        case Opcode::RRC:
+            regA = (regA >> 1 | regA << 7) & 0xFF;
+            carryFlag = (regA & 0x80) != 0;
+            break;
+        case Opcode::RAR: {
+            const byte temp = regA;
+            regA = (regA >> 1 | (carryFlag ? 0x80 : 0)) & 0xFF;
+            carryFlag = (temp & 0x01) != 0;
+            break;
+        }
         case Opcode::STAX_B:
             writeMemory(getBC(), regA);
             break;
@@ -392,27 +447,55 @@ int I8080::executeOpcode(Opcode opcode) {
         case Opcode::LHLD:
             setHL(readMemoryWord(popCommandWord()));
             break;
+        case Opcode::SHLD:
+            writeMemoryWord(popCommandWord(), getHL());
+            break;
         case Opcode::LDA:
             regA = readMemory(popCommandWord());
             break;
         case Opcode::CPI: {
             const byte value = popCommandByte();
-            const byte result = regA - value;
-
-            carryFlag = regA < value;
-            auxCarryFlag = ((regA ^ value ^ result) & 0x10) != 0;
-            signFlag = (result & 0x80) != 0;
-            zeroFlag = result == 0;
-            parityFlag = PARITY_TABLE[result];
-
-            return 7;
+            const byte temp = regA;
+            subtractWithFlags(value, false);
+            regA = temp;
+            break;
+        }
+        case Opcode::SUI: {
+            const byte value = popCommandByte();
+            subtractWithFlags(value, false);
+            break;
+        }
+        case Opcode::SBI: {
+            const byte value = popCommandByte();
+            subtractWithFlags(value, true);
+            break;
+        }
+        case Opcode::XRI:
+            regA ^= popCommandByte();
+            setLogicalFlags();
+            break;
+        case Opcode::XCHG: {
+            byte temp = regL;
+            regL = regE;
+            regE = temp;
+            temp = regH;
+            regH = regD;
+            regD = temp;
+            break;
         }
         case Opcode::INR_B:
             updateFlagsAfterIncrease(getBC() + 1 & 0xFF);
             break;
-        case Opcode::DCR_B:
-            updateFlagsAfterDecrease(getBC() + 1 & 0xFF);
+        case Opcode::ADI: {
+            const byte value = popCommandByte();
+            addWithFlags(value, false);
             break;
+        }
+        case Opcode::ACI: {
+            const byte value = popCommandByte();
+            addWithFlags(value, true);
+            break;
+        }
         case Opcode::RLC:
             regA = (regA << 1 | regA >> 7) & 0xFF;
             carryFlag = (regA & 1) != 0;
@@ -425,6 +508,9 @@ int I8080::executeOpcode(Opcode opcode) {
         }
         case Opcode::LDAX_B:
             regA = readMemory(getBC());
+            break;
+        case Opcode::LDAX_D:
+            regA = readMemory(getDE());
             break;
         case Opcode::HLT:
             halted = true;
@@ -471,11 +557,7 @@ int I8080::executeOpcode(Opcode opcode) {
             break;
         case Opcode::ANI:
             regA &= popCommandByte();
-            auxCarryFlag = false;
-            signFlag = (regA & 0x80) != 0;
-            zeroFlag = regA == 0;
-            parityFlag = PARITY_TABLE[regA];
-            carryFlag = false;
+            setLogicalFlags();
             break;
         case Opcode::RM:
             if (!signFlag) return 5;
