@@ -88,18 +88,6 @@ private:
     ReadIO readIO;
     WriteIO writeIO;
 
-    [[nodiscard]] word getBC() const;
-
-    [[nodiscard]] word getDE() const;
-
-    [[nodiscard]] word getHL() const;
-
-    void setBC(word v);
-
-    void setDE(word v);
-
-    void setHL(word v);
-
     byte popCommandByte();
 
     word popCommandWord();
@@ -112,9 +100,13 @@ private:
 
     static RegisterPair getRegisterPairFromOpcode(Opcode opcode);
 
-    byte readRegOrMemory(Register reg) const;
+    byte readRegisterOrMemory(Register reg) const;
 
-    void writeRegOrMemory(Register reg, byte value) const;
+    void writeRegisterOrMemory(Register reg, byte value) const;
+
+    word readRegisterPair(RegisterPair pair) const;
+
+    void writeRegisterPair(RegisterPair pair, word value);
 
     void writeMemoryWord(address addr, word v) const;
 
