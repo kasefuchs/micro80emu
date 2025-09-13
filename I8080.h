@@ -138,19 +138,15 @@ private:
 
     int executeDecrement(Opcode opcode);
 
-    int executeMoveImmediate(Opcode opcode);
+    int executeImmediateMove(Opcode opcode);
 
     int executeCompare(Opcode opcode);
 
-    int executeOr(Opcode opcode);
+    int executeLogical(Opcode opcode);
 
-    int executeExclusiveOr(Opcode opcode);
-
-    int executeSubtractWithBorrow(Opcode opcode);
+    int executeSubtract(Opcode opcode);
 
     int executeAdd(Opcode opcode);
-
-    int executeAddWithCarry(Opcode opcode);
 
     int executeIncrementPair(Opcode opcode);
 

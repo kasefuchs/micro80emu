@@ -220,7 +220,7 @@ int I8080::executeDecrement(const Opcode opcode) {
     return dest == Register::M ? 10 : 5;
 }
 
-int I8080::executeMoveImmediate(const Opcode opcode) {
+int I8080::executeImmediateMove(const Opcode opcode) {
     const Register dest = getDestFromOpcode(opcode);
     const byte value = popCommandByte();
 
@@ -240,31 +240,41 @@ int I8080::executeCompare(const Opcode opcode) {
     return src == Register::M ? 7 : 4;
 }
 
-int I8080::executeOr(const Opcode opcode) {
+int I8080::executeLogical(const Opcode opcode) {
     const Register src = getSrcFromOpcode(opcode);
     const byte value = readRegOrMemory(src);
 
-    regA |= value;
-    setLogicalFlags();
+    // ReSharper disable once CppDefaultCaseNotHandledInSwitchStatement
+    switch (static_cast<int>(opcode) & 0xF8) {
+        case 0xA0: // ANA
+            regA &= value;
+            auxCarryFlag = ((regA | value) & 0x08) != 0;
+            break;
+        case 0xA8: // XRA
+            regA ^= value;
+            auxCarryFlag = false;
+            break;
+        case 0xB0: // ORA
+            regA |= value;
+            auxCarryFlag = false;
+            break;
+    }
+
+    carryFlag = false;
+    signFlag = (regA & 0x80) != 0;
+    zeroFlag = regA == 0;
+    parityFlag = PARITY_TABLE[regA];
 
     return src == Register::M ? 7 : 4;
 }
 
-int I8080::executeExclusiveOr(const Opcode opcode) {
+int I8080::executeSubtract(const Opcode opcode) {
     const Register src = getSrcFromOpcode(opcode);
     const byte value = readRegOrMemory(src);
 
-    regA ^= value;
-    setLogicalFlags();
+    const bool withBorrow = (static_cast<int>(opcode) & 0x08) != 0;
 
-    return src == Register::M ? 7 : 4;
-}
-
-int I8080::executeSubtractWithBorrow(const Opcode opcode) {
-    const Register src = getSrcFromOpcode(opcode);
-    const byte value = readRegOrMemory(src);
-
-    subtractWithFlags(value, true);
+    subtractWithFlags(value, withBorrow);
 
     return src == Register::M ? 7 : 4;
 }
@@ -273,16 +283,9 @@ int I8080::executeAdd(const Opcode opcode) {
     const Register src = getSrcFromOpcode(opcode);
     const byte value = readRegOrMemory(src);
 
-    addWithFlags(value, false);
+    const bool withCarry = (static_cast<int>(opcode) & 0x08) != 0;
 
-    return src == Register::M ? 7 : 4;
-}
-
-int I8080::executeAddWithCarry(const Opcode opcode) {
-    const Register src = getSrcFromOpcode(opcode);
-    const byte value = readRegOrMemory(src);
-
-    addWithFlags(value, true);
+    addWithFlags(value, withCarry);
 
     return src == Register::M ? 7 : 4;
 }
@@ -383,19 +386,17 @@ int I8080::executeConditionalJump(const Opcode opcode, const bool condition) {
 }
 
 int I8080::executeOpcode(Opcode opcode) {
-    if ((static_cast<int>(opcode) & 0xF8) == 0x80) return executeAdd(opcode);
-    if ((static_cast<int>(opcode) & 0xF8) == 0x88) return executeAddWithCarry(opcode);
+    if ((static_cast<int>(opcode) & 0xF0) == 0x80) return executeAdd(opcode);
+    if ((static_cast<int>(opcode) & 0xF0) == 0x90) return executeSubtract(opcode);
     if ((static_cast<int>(opcode) & 0xCF) == 0x03) return executeIncrementPair(opcode);
     if ((static_cast<int>(opcode) & 0xCF) == 0x09) return executeDoubleAdd(opcode);
     if ((static_cast<int>(opcode) & 0xC7) == 0x05) return executeDecrement(opcode);
     if ((static_cast<int>(opcode) & 0xF8) == 0xB8) return executeCompare(opcode);
-    if ((static_cast<int>(opcode) & 0xC7) == 0x06) return executeMoveImmediate(opcode);
-    if ((static_cast<int>(opcode) & 0xC0) == 0x40 && opcode != Opcode::HLT) return executeMove(opcode);
-    if ((static_cast<int>(opcode) & 0xF8) == 0xB0) return executeOr(opcode);
-    if ((static_cast<int>(opcode) & 0xF8) == 0xA8) return executeExclusiveOr(opcode);
     if ((static_cast<int>(opcode) & 0xCF) == 0xC5) return executePush(opcode);
     if ((static_cast<int>(opcode) & 0xCF) == 0xC1) return executePop(opcode);
-    if ((static_cast<int>(opcode) & 0xF8) == 0x98) return executeSubtractWithBorrow(opcode);
+    if ((static_cast<int>(opcode) & 0xC7) == 0x06) return executeImmediateMove(opcode);
+    if ((static_cast<int>(opcode) & 0xC0) == 0x40 && opcode != Opcode::HLT) return executeMove(opcode);
+    if (opcode >= Opcode::ANA_B && opcode <= Opcode::ORA_A) return executeLogical(opcode);
 
     switch (opcode) {
         case Opcode::NOP:
@@ -472,6 +473,10 @@ int I8080::executeOpcode(Opcode opcode) {
         }
         case Opcode::XRI:
             regA ^= popCommandByte();
+            setLogicalFlags();
+            break;
+        case Opcode::ANI:
+            regA &= popCommandByte();
             setLogicalFlags();
             break;
         case Opcode::XCHG: {
@@ -554,10 +559,6 @@ int I8080::executeOpcode(Opcode opcode) {
         case Opcode::RET:
         case Opcode::RET_D9:
             programCounter = popStack();
-            break;
-        case Opcode::ANI:
-            regA &= popCommandByte();
-            setLogicalFlags();
             break;
         case Opcode::RM:
             if (!signFlag) return 5;
