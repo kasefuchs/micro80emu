@@ -136,13 +136,6 @@ I8080::word I8080::popStack() {
     return v;
 }
 
-void I8080::updateFlagsAfterIncrease(const byte v) {
-    auxCarryFlag = (v & 0x0F) == 0;
-    signFlag = v & 0x80;
-    zeroFlag = v == 0;
-    parityFlag = PARITY_TABLE[v];
-}
-
 I8080::byte I8080::getByteFromFlags() const {
     byte field = 2;
     field |= signFlag ? 0x80 : 0x00;
@@ -159,14 +152,6 @@ void I8080::setFlagsFromByte(const byte field) {
     auxCarryFlag = (field & 0x10) != 0;
     parityFlag = (field & 0x04) != 0;
     carryFlag = (field & 0x01) != 0;
-}
-
-void I8080::setLogicalFlags() {
-    auxCarryFlag = false;
-    signFlag = (regA & 0x80) != 0;
-    zeroFlag = regA == 0;
-    parityFlag = PARITY_TABLE[regA];
-    carryFlag = false;
 }
 
 void I8080::addWithFlags(const byte value, const bool withCarry) {
@@ -268,6 +253,33 @@ int I8080::executeLogical(const Opcode opcode) {
     return src == Register::M ? 7 : 4;
 }
 
+int I8080::executeImmediateLogical(const Opcode opcode) {
+    const byte value = popCommandByte();
+
+    // ReSharper disable once CppDefaultCaseNotHandledInSwitchStatement
+    switch (opcode) {
+        case Opcode::ANI:
+            regA &= value;
+            auxCarryFlag = ((regA | value) & 0x08) != 0;
+            break;
+        case Opcode::XRI:
+            regA ^= value;
+            auxCarryFlag = false;
+            break;
+        case Opcode::ORI:
+            regA |= value;
+            auxCarryFlag = false;
+            break;
+    }
+
+    carryFlag = false;
+    signFlag = (regA & 0x80) != 0;
+    zeroFlag = regA == 0;
+    parityFlag = PARITY_TABLE[regA];
+
+    return OPCODE_CYCLES[static_cast<int>(opcode)];
+}
+
 int I8080::executeSubtract(const Opcode opcode) {
     const Register src = getSrcFromOpcode(opcode);
     const byte value = readRegOrMemory(src);
@@ -288,6 +300,21 @@ int I8080::executeAdd(const Opcode opcode) {
     addWithFlags(value, withCarry);
 
     return src == Register::M ? 7 : 4;
+}
+
+int I8080::executeIncrement(const Opcode opcode) {
+    const Register src = getSrcFromOpcode(opcode);
+    const byte value = readRegOrMemory(src);
+
+    writeRegOrMemory(src, value + 1);
+
+    auxCarryFlag = false;
+    signFlag = (regA & 0x80) != 0;
+    zeroFlag = regA == 0;
+    parityFlag = PARITY_TABLE[regA];
+    carryFlag = false;
+
+    return src == Register::M ? 10 : 5;
 }
 
 int I8080::executeIncrementPair(const Opcode opcode) {
@@ -378,9 +405,33 @@ int I8080::executeDoubleAdd(const Opcode opcode) {
     return OPCODE_CYCLES[static_cast<int>(opcode)];
 }
 
-int I8080::executeConditionalJump(const Opcode opcode, const bool condition) {
+int I8080::executeConditionalJump(const bool condition) {
     const address addr = popCommandWord();
     if (condition) programCounter = addr;
+
+    return 10;
+}
+
+int I8080::executeConditionalCall(const bool condition) {
+    const word value = popStack();
+    if (!condition) return 11;
+    pushStack(programCounter);
+    programCounter = value;
+    return 17;
+}
+
+int I8080::executeConditionalReturn(const bool condition) {
+    if (!condition) return 5;
+    programCounter = popStack();
+    return 11;
+}
+
+int I8080::executeReset(const Opcode opcode) {
+    const int index = static_cast<int>(opcode) >> 3 & 0x07;
+    const address addr = index * 0x8;
+
+    pushStack(programCounter);
+    programCounter = addr;
 
     return OPCODE_CYCLES[static_cast<int>(opcode)];
 }
@@ -388,6 +439,7 @@ int I8080::executeConditionalJump(const Opcode opcode, const bool condition) {
 int I8080::executeOpcode(Opcode opcode) {
     if ((static_cast<int>(opcode) & 0xF0) == 0x80) return executeAdd(opcode);
     if ((static_cast<int>(opcode) & 0xF0) == 0x90) return executeSubtract(opcode);
+    if ((static_cast<int>(opcode) & 0xC7) == 0x04) return executeIncrement(opcode);
     if ((static_cast<int>(opcode) & 0xCF) == 0x03) return executeIncrementPair(opcode);
     if ((static_cast<int>(opcode) & 0xCF) == 0x09) return executeDoubleAdd(opcode);
     if ((static_cast<int>(opcode) & 0xC7) == 0x05) return executeDecrement(opcode);
@@ -395,7 +447,9 @@ int I8080::executeOpcode(Opcode opcode) {
     if ((static_cast<int>(opcode) & 0xCF) == 0xC5) return executePush(opcode);
     if ((static_cast<int>(opcode) & 0xCF) == 0xC1) return executePop(opcode);
     if ((static_cast<int>(opcode) & 0xC7) == 0x06) return executeImmediateMove(opcode);
+    if ((static_cast<int>(opcode) & 0xC7) == 0xC7) return executeReset(opcode);
     if ((static_cast<int>(opcode) & 0xC0) == 0x40 && opcode != Opcode::HLT) return executeMove(opcode);
+    if ((static_cast<int>(opcode) & 0xE7) == 0xE6 && opcode != Opcode::CPI) return executeImmediateLogical(opcode);
     if (opcode >= Opcode::ANA_B && opcode <= Opcode::ORA_A) return executeLogical(opcode);
 
     switch (opcode) {
@@ -471,14 +525,6 @@ int I8080::executeOpcode(Opcode opcode) {
             subtractWithFlags(value, true);
             break;
         }
-        case Opcode::XRI:
-            regA ^= popCommandByte();
-            setLogicalFlags();
-            break;
-        case Opcode::ANI:
-            regA &= popCommandByte();
-            setLogicalFlags();
-            break;
         case Opcode::XCHG: {
             byte temp = regL;
             regL = regE;
@@ -488,9 +534,6 @@ int I8080::executeOpcode(Opcode opcode) {
             regD = temp;
             break;
         }
-        case Opcode::INR_B:
-            updateFlagsAfterIncrease(getBC() + 1 & 0xFF);
-            break;
         case Opcode::ADI: {
             const byte value = popCommandByte();
             addWithFlags(value, false);
@@ -505,12 +548,6 @@ int I8080::executeOpcode(Opcode opcode) {
             regA = (regA << 1 | regA >> 7) & 0xFF;
             carryFlag = (regA & 1) != 0;
             break;
-        case Opcode::DAD_B: {
-            const word temp = getHL() + getBC();
-            setHL(temp & 0xFFFF);
-            carryFlag = temp > 0xFFFF;
-            break;
-        }
         case Opcode::LDAX_B:
             regA = readMemory(getBC());
             break;
@@ -520,25 +557,39 @@ int I8080::executeOpcode(Opcode opcode) {
         case Opcode::HLT:
             halted = true;
             break;
+        case Opcode::XTHL: {
+            const word value = readMemoryWord(stackPointer);
+            writeMemoryWord(stackPointer, getHL());
+            setHL(value);
+            break;
+        }
+        case Opcode::SPHL:
+            stackPointer = getHL();
+            break;
+
+        // Jumps.
         case Opcode::JMP:
         case Opcode::JMP_C8:
-            return executeConditionalJump(opcode, true);
+            return executeConditionalJump(true);
         case Opcode::JNZ:
-            return executeConditionalJump(opcode, !zeroFlag);
+            return executeConditionalJump(!zeroFlag);
         case Opcode::JZ:
-            return executeConditionalJump(opcode, zeroFlag);
+            return executeConditionalJump(zeroFlag);
         case Opcode::JNC:
-            return executeConditionalJump(opcode, !carryFlag);
+            return executeConditionalJump(!carryFlag);
         case Opcode::JC:
-            return executeConditionalJump(opcode, carryFlag);
+            return executeConditionalJump(carryFlag);
         case Opcode::JPO:
-            return executeConditionalJump(opcode, !parityFlag);
+            return executeConditionalJump(!parityFlag);
         case Opcode::JPE:
-            return executeConditionalJump(opcode, parityFlag);
-        case Opcode::JP:
-            return executeConditionalJump(opcode, !signFlag);
+            return executeConditionalJump(parityFlag);
         case Opcode::JM:
-            return executeConditionalJump(opcode, signFlag);
+            return executeConditionalJump(signFlag);
+
+        case Opcode::JP:
+            return executeConditionalJump(!signFlag);
+
+        // Calls.
         case Opcode::CALL:
         case Opcode::CALL_DD:
         case Opcode::CALL_ED:
@@ -548,37 +599,61 @@ int I8080::executeOpcode(Opcode opcode) {
             programCounter = temp;
             break;
         }
-        case Opcode::RZ:
-            if (!zeroFlag) return 5;
-            programCounter = popStack();
-            return 11;
-        case Opcode::RNZ:
-            if (zeroFlag) return 5;
-            programCounter = popStack();
-            return 11;
+        case Opcode::CNZ:
+            return executeConditionalCall(!zeroFlag);
+        case Opcode::CZ:
+            return executeConditionalCall(zeroFlag);
+        case Opcode::CNC:
+            return executeConditionalCall(!carryFlag);
+        case Opcode::CC:
+            return executeConditionalCall(carryFlag);
+        case Opcode::CPO:
+            return executeConditionalCall(parityFlag);
+        case Opcode::CPE:
+            return executeConditionalCall(!parityFlag);
+        case Opcode::CP:
+            return executeConditionalCall(signFlag);
+        case Opcode::CM:
+            return executeConditionalCall(!signFlag);
+
+        // Returns.
         case Opcode::RET:
         case Opcode::RET_D9:
             programCounter = popStack();
             break;
+        case Opcode::RNZ:
+            return executeConditionalReturn(!zeroFlag);
+        case Opcode::RZ:
+            return executeConditionalReturn(zeroFlag);
+        case Opcode::RNC:
+            return executeConditionalReturn(!carryFlag);
+        case Opcode::RC:
+            return executeConditionalReturn(carryFlag);
+        case Opcode::RPO:
+            return executeConditionalReturn(!parityFlag);
+        case Opcode::RPE:
+            return executeConditionalReturn(parityFlag);
+        case Opcode::RP:
+            return executeConditionalReturn(!signFlag);
         case Opcode::RM:
-            if (!signFlag) return 5;
-            programCounter = popStack();
-            return 11;
-        case Opcode::SPHL:
-            stackPointer = getHL();
+            return executeConditionalReturn(signFlag);
+
+        // I/O.
+        case Opcode::IN:
+            regA = readIO(popCommandByte());
             break;
         case Opcode::OUT:
             writeIO(popCommandByte(), regA);
             break;
-        case Opcode::IN:
-            regA = readIO(popCommandByte());
-            break;
+
+        // Interrupts.
         case Opcode::DI:
             interruptEnable = false;
             break;
         case Opcode::EI:
             interruptEnable = true;
             break;
+
         default:
             halted = true;
             std::printf("unknown opcode: %02x\n", opcode);

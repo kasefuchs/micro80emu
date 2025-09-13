@@ -122,13 +122,9 @@ private:
 
     word popStack();
 
-    void updateFlagsAfterIncrease(byte v);
-
     byte getByteFromFlags() const;
 
     void setFlagsFromByte(byte field);
-
-    void setLogicalFlags();
 
     void addWithFlags(byte value, bool withCarry);
 
@@ -144,19 +140,29 @@ private:
 
     int executeLogical(Opcode opcode);
 
+    int executeImmediateLogical(Opcode opcode);
+
     int executeSubtract(Opcode opcode);
 
     int executeAdd(Opcode opcode);
+
+    int executeIncrement(Opcode opcode);
 
     int executeIncrementPair(Opcode opcode);
 
     int executePush(Opcode opcode);
 
+    int executeConditionalCall(bool condition);
+
     int executeDoubleAdd(Opcode opcode);
 
-    int executeConditionalJump(Opcode opcode, bool condition);
+    int executeConditionalJump(bool condition);
 
     int executePop(Opcode opcode);
+
+    int executeConditionalReturn(bool condition);
+
+    int executeReset(Opcode opcode);
 
     int executeOpcode(Opcode opcode);
 };
