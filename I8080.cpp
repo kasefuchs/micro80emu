@@ -205,6 +205,15 @@ int I8080::executeDecrement(const Opcode opcode) {
     return dest == Register::M ? 10 : 5;
 }
 
+int I8080::executeDecrementPair(const Opcode opcode) {
+    const RegisterPair pair = getRegisterPairFromOpcode(opcode);
+    const word value = readRegisterPair(pair);
+
+    writeRegisterPair(pair, value - 1 & 0xFFFF);
+
+    return OPCODE_CYCLES[static_cast<int>(opcode)];
+}
+
 int I8080::executeImmediateMove(const Opcode opcode) {
     const Register dest = getDestFromOpcode(opcode);
     const byte value = popCommandByte();
@@ -212,6 +221,15 @@ int I8080::executeImmediateMove(const Opcode opcode) {
     writeRegisterOrMemory(dest, value);
 
     return dest == Register::M ? 10 : 7;
+}
+
+int I8080::executeImmediateLoadPair(const Opcode opcode) {
+    const word value = popCommandWord();
+    const RegisterPair pair = getRegisterPairFromOpcode(opcode);
+
+    writeRegisterPair(pair, value);
+
+    return OPCODE_CYCLES[static_cast<int>(opcode)];
 }
 
 int I8080::executeCompare(const Opcode opcode) {
@@ -394,21 +412,6 @@ int I8080::executeReset(const Opcode opcode) {
 }
 
 int I8080::executeOpcode(Opcode opcode) {
-    if ((static_cast<int>(opcode) & 0xF0) == 0x80) return executeAdd(opcode); // ADD.
-    if ((static_cast<int>(opcode) & 0xF0) == 0x90) return executeSubtract(opcode); // SUB.
-    if ((static_cast<int>(opcode) & 0xC7) == 0x04) return executeIncrement(opcode); // INR.
-    if ((static_cast<int>(opcode) & 0xCF) == 0x03) return executeIncrementPair(opcode); // INX.
-    if ((static_cast<int>(opcode) & 0xCF) == 0x09) return executeDoubleAdd(opcode); // DAD.
-    if ((static_cast<int>(opcode) & 0xC7) == 0x05) return executeDecrement(opcode); // DCR.
-    if ((static_cast<int>(opcode) & 0xF8) == 0xB8) return executeCompare(opcode); // CMP.
-    if ((static_cast<int>(opcode) & 0xCF) == 0xC5) return executePush(opcode); // PUSH.
-    if ((static_cast<int>(opcode) & 0xCF) == 0xC1) return executePop(opcode); // POP.
-    if ((static_cast<int>(opcode) & 0xC7) == 0x06) return executeImmediateMove(opcode); // MVI.
-    if ((static_cast<int>(opcode) & 0xC7) == 0xC7) return executeReset(opcode); // RST.
-    if ((static_cast<int>(opcode) & 0xC0) == 0x40 && opcode != Opcode::HLT) return executeMove(opcode); // MOV.
-    if ((static_cast<int>(opcode) & 0xE7) == 0xE6 && opcode != Opcode::CPI) return executeImmediateLogical(opcode); // ANI/XRI/ORI.
-    if (opcode >= Opcode::ANA_B && opcode <= Opcode::ORA_A) return executeLogical(opcode); // ANA/XRA/ORA.
-
     switch (opcode) {
         case Opcode::NOP:
         case Opcode::NOP_08:
@@ -421,18 +424,6 @@ int I8080::executeOpcode(Opcode opcode) {
             break;
         case Opcode::STA:
             writeMemory(popCommandWord(), regA);
-            break;
-        case Opcode::LXI_B:
-            writeRegisterPair(RegisterPair::BC, popCommandWord());
-            break;
-        case Opcode::LXI_D:
-            writeRegisterPair(RegisterPair::DE, popCommandWord());
-            break;
-        case Opcode::LXI_H:
-            writeRegisterPair(RegisterPair::HL, popCommandWord());
-            break;
-        case Opcode::LXI_SP:
-            stackPointer = popCommandWord();
             break;
         case Opcode::CMA:
             regA ^= 0xFF;
@@ -450,6 +441,15 @@ int I8080::executeOpcode(Opcode opcode) {
             carryFlag = (temp & 0x01) != 0;
             break;
         }
+        case Opcode::RAL: {
+            const byte temp = regA;
+            regA = (regA << 1 | (carryFlag ? 0x01 : 0)) & 0xFF;
+            carryFlag = (temp & 0x80) != 0;
+            break;
+        }
+        case Opcode::STC:
+            carryFlag = true;
+            break;
         case Opcode::STAX_B:
             writeMemory(readRegisterPair(RegisterPair::BC), regA);
             break;
@@ -522,6 +522,9 @@ int I8080::executeOpcode(Opcode opcode) {
         }
         case Opcode::SPHL:
             stackPointer = readRegisterPair(RegisterPair::HL);
+            break;
+        case Opcode::PCHL:
+            programCounter = readRegisterPair(RegisterPair::HL);
             break;
 
         // Jumps.
@@ -611,6 +614,59 @@ int I8080::executeOpcode(Opcode opcode) {
             break;
 
         default:
+            // ADD.
+            if ((static_cast<int>(opcode) & 0xF0) == 0x80) return executeAdd(opcode);
+
+            // SUB.
+            if ((static_cast<int>(opcode) & 0xF0) == 0x90) return executeSubtract(opcode);
+
+            // INR.
+            if ((static_cast<int>(opcode) & 0xC7) == 0x04) return executeIncrement(opcode);
+
+            // INX.
+            if ((static_cast<int>(opcode) & 0xCF) == 0x03) return executeIncrementPair(opcode);
+
+            // DAD.
+            if ((static_cast<int>(opcode) & 0xCF) == 0x09) return executeDoubleAdd(opcode);
+
+            // DCR.
+            if ((static_cast<int>(opcode) & 0xC7) == 0x05) return executeDecrement(opcode);
+
+            // DCX.
+            if ((static_cast<int>(opcode) & 0xCF) == 0x0B) return executeDecrementPair(opcode);
+
+            // CMP.
+            if ((static_cast<int>(opcode) & 0xF8) == 0xB8) return executeCompare(opcode);
+
+            // PUSH.
+            if ((static_cast<int>(opcode) & 0xCF) == 0xC5) return executePush(opcode);
+
+            // POP.
+            if ((static_cast<int>(opcode) & 0xCF) == 0xC1) return executePop(opcode);
+
+            // MVI.
+            if ((static_cast<int>(opcode) & 0xC7) == 0x06) return executeImmediateMove(opcode);
+
+            // RST.
+            if ((static_cast<int>(opcode) & 0xC7) == 0xC7) return executeReset(opcode);
+
+            // MOV.
+            if ((static_cast<int>(opcode) & 0xC0) == 0x40 && opcode != Opcode::HLT) {
+                return executeMove(opcode);
+            }
+
+            // LXI.
+            if ((static_cast<int>(opcode) & 0x0F) == 0x01) return executeImmediateLoadPair(opcode);
+
+
+            // ANI / XRI / ORI.
+            if ((static_cast<int>(opcode) & 0xE7) == 0xE6 && opcode != Opcode::CPI) {
+                return executeImmediateLogical(opcode);
+            }
+
+            // ANA / XRA / ORA.
+            if (opcode >= Opcode::ANA_B && opcode <= Opcode::ORA_A) return executeLogical(opcode);
+
             halted = true;
             std::printf("unknown opcode: %02x\n", opcode);
             break;

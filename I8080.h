@@ -126,7 +126,11 @@ private:
 
     int executeDecrement(Opcode opcode);
 
+    int executeDecrementPair(Opcode opcode);
+
     int executeImmediateMove(Opcode opcode);
+
+    int executeImmediateLoadPair(Opcode opcode);
 
     int executeCompare(Opcode opcode);
 
