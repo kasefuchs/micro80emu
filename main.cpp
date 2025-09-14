@@ -3,36 +3,31 @@
 #include <iostream>
 #include <cxxopts.hpp>
 
-#include "I8080.h"
+#include "Hardware.h"
 
-constexpr I8080::address ROM_START = 0xF800;
+Core::byte rom[0x800];
+Core::byte memory[0xF800];
 
-I8080::byte rom[0x800];
-I8080::byte memory[0xF800];
-
-volatile bool interrupted = false;
-
-void signalHandler(const int signal) {
-    if (signal == SIGINT) interrupted = true;
-}
-
-I8080 cpu(
-    [](const I8080::address addr) {
+constexpr Core::address ROM_START = 0xF800;
+Hardware hardware(
+    [](const Core::address addr) {
         return addr >= ROM_START ? rom[addr % sizeof(rom)] : memory[addr];
     },
-    [](const I8080::address addr, const I8080::byte val) {
+    [](const Core::address addr, const Core::byte val) {
         if (addr < ROM_START) memory[addr] = val;
-    },
-    [](const I8080::address addr) {
-        return 0xFF;
-    },
-    [](const I8080::address addr, const I8080::byte val) {
     }
 );
+
+void signalHandler(const int _) { hardware.stop(); }
 
 cxxopts::Options options("micro80emu", "Micro-80 Emulator");
 
 int main(const int argc, char *argv[]) {
+    // Signals.
+    std::signal(SIGINT, signalHandler);
+    std::signal(SIGTERM, signalHandler);
+
+    // CLI options.
     options.add_options()
             ("h,help", "display this help")
             ("r,rom", "ROM image file", cxxopts::value<std::string>()->default_value("rom.bin"))
@@ -46,21 +41,22 @@ int main(const int argc, char *argv[]) {
         return 0;
     }
 
+    // Load ROM image
     std::ifstream romFile(result["rom"].as<std::string>(), std::ios::binary);
     romFile.read(reinterpret_cast<char *>(rom), sizeof(rom));
     romFile.close();
 
+    // Load memory image if exists
     if (result.count("mem")) {
         std::ifstream memFile(result["mem"].as<std::string>(), std::ios::binary);
         memFile.read(reinterpret_cast<char *>(memory), sizeof(memory));
         memFile.close();
     }
 
-    const I8080::address entryAddr = std::stoul(result["entry"].as<std::string>(), nullptr, 16);
+    // Parse entry address
+    const Core::address entryAddr = std::stoul(result["entry"].as<std::string>(), nullptr, 16);
 
-    std::signal(SIGINT, signalHandler);
-    for (cpu.reset(entryAddr); !cpu.isHalted() && !interrupted; cpu.step()) {
-    }
+    hardware.run(entryAddr);
 
     if (result.count("dump")) {
         std::ofstream dumpFile(result["dump"].as<std::string>(), std::ios_base::binary);

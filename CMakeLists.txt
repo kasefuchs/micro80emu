@@ -8,8 +8,13 @@ add_executable(
         ${PROJECT_NAME}
         main.cpp
         I8080.cpp
+        Display.cpp
+        Hardware.cpp
+        Hardware.h
 )
 
-find_package(cxxopts QUIET)
+find_package(cxxopts REQUIRED)
+find_package(raylib REQUIRED)
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${CXXOPTS_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME} PRIVATE raylib)

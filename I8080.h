@@ -1,22 +1,16 @@
-#ifndef MICRO80EMU_I8080_H
-#define MICRO80EMU_I8080_H
-#include <array>
-#include <cstdint>
+#pragma once
 #include <functional>
 
+#include "Types.h"
 
 class I8080 {
 public:
-    using byte = std::uint8_t;
-    using word = std::uint16_t;
-    using address = std::uint16_t;
+    using ReadIO = std::function<Core::byte(Core::address)>;
+    using WriteIO = std::function<void(Core::address, Core::byte)>;
 
-    using ReadMemory = std::function<byte(address)>;
-    using WriteMemory = std::function<void(address, byte)>;
-    using ReadIO = std::function<byte(address)>;
-    using WriteIO = std::function<void(address, byte)>;
+    static constexpr float FREQUENCY = 25000000.0;
 
-    enum class Opcode : byte {
+    enum class Opcode : Core::byte {
         NOP, LXI_B, STAX_B, INX_B, INR_B, DCR_B, MVI_B, RLC,
         NOP_08, DAD_B, LDAX_B, DCX_B, INR_C, DCR_C, MVI_C, RRC,
         NOP_10, LXI_D, STAX_D, INX_D, INR_D, DCR_D, MVI_D, RAL,
@@ -51,48 +45,46 @@ public:
         RM, SPHL, JM, EI, CM, CALL_FD, CPI, RST_7,
     };
 
-    I8080(ReadMemory rm, WriteMemory wm, ReadIO rio = nullptr, WriteIO wio = nullptr);
+    I8080(Core::ReadMemory rm, Core::WriteMemory wm, ReadIO rio, WriteIO wio);
 
     int step();
 
-    void jump(address addr);
-
-    void reset(address addr = 0x0);
-
-    [[nodiscard]] int getCycles() const;
+    void reset(Core::address addr = 0x0);
 
     [[nodiscard]] bool isHalted() const;
 
-    [[nodiscard]] address getProgramCounter() const;
+    [[nodiscard]] int getCycles() const;
+
+    [[nodiscard]] Core::address getProgramCounter() const;
 
 private:
     static const int OPCODE_CYCLES[256];
 
-    static const std::array<byte, 256> PARITY_TABLE;
+    static const int PARITY_TABLE[256];
 
     enum class Register : int { B, C, D, E, H, L, M, A };
 
     enum class RegisterPair : int { BC, DE, HL, SP_PSW };
 
-    byte regA{}, regB{}, regC{}, regD{}, regE{}, regH{}, regL{};
-    byte *regs[8];
-    address stackPointer{}, programCounter{};
+    Core::ReadMemory readMemory;
+    Core::WriteMemory writeMemory;
+    ReadIO readIO;
+    WriteIO writeIO;
+
+    Core::byte regA{}, regB{}, regC{}, regD{}, regE{}, regH{}, regL{};
+    Core::byte *regs[8];
+    Core::address stackPointer{}, programCounter{};
 
     bool signFlag{}, parityFlag{}, auxCarryFlag{}, zeroFlag{}, carryFlag{};
     bool interruptEnable{}, halted{};
 
     int cycles{};
 
-    ReadMemory readMemory;
-    WriteMemory writeMemory;
-    ReadIO readIO;
-    WriteIO writeIO;
+    Core::byte popCommandByte();
 
-    byte popCommandByte();
+    Core::word popCommandWord();
 
-    word popCommandWord();
-
-    word readMemoryWord(address addr) const;
+    Core::word readMemoryWord(Core::address addr) const;
 
     static Register getDestFromOpcode(Opcode opcode);
 
@@ -100,27 +92,27 @@ private:
 
     static RegisterPair getRegisterPairFromOpcode(Opcode opcode);
 
-    byte readRegisterOrMemory(Register reg) const;
+    Core::byte readRegisterOrMemory(Register reg) const;
 
-    void writeRegisterOrMemory(Register reg, byte value) const;
+    void writeRegisterOrMemory(Register reg, Core::byte value) const;
 
-    word readRegisterPair(RegisterPair pair) const;
+    Core::word readRegisterPair(RegisterPair pair) const;
 
-    void writeRegisterPair(RegisterPair pair, word value);
+    void writeRegisterPair(RegisterPair pair, Core::word value);
 
-    void writeMemoryWord(address addr, word v) const;
+    void writeMemoryWord(Core::address addr, Core::word v) const;
 
-    void pushStack(word v);
+    void pushStack(Core::word v);
 
-    word popStack();
+    Core::word popStack();
 
-    byte getByteFromFlags() const;
+    Core::byte getByteFromFlags() const;
 
-    void setFlagsFromByte(byte field);
+    void setFlagsFromByte(Core::byte field);
 
-    void addWithFlags(byte value, bool withCarry);
+    void addWithFlags(Core::byte value, bool withCarry);
 
-    void subtractWithFlags(byte value, bool withBorrow);
+    void subtractWithFlags(Core::byte value, bool withBorrow);
 
     int executeMove(Opcode opcode) const;
 
@@ -162,6 +154,3 @@ private:
 
     int executeOpcode(Opcode opcode);
 };
-
-
-#endif //MICRO80EMU_I8080_H

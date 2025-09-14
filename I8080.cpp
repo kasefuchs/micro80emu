@@ -1,27 +1,24 @@
 #include "I8080.h"
 
 #include <cstdio>
-#include <iostream>
 
-const std::array<I8080::byte, 256> I8080::PARITY_TABLE = {
-    {
-        1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
-        0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
-        0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
-        1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
-        0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
-        1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
-        1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
-        0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
-        0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
-        1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
-        1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
-        0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
-        1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
-        0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
-        0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
-        1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1
-    }
+const int I8080::PARITY_TABLE[256] = {
+    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1
 };
 
 const int I8080::OPCODE_CYCLES[256] = {
@@ -43,40 +40,39 @@ const int I8080::OPCODE_CYCLES[256] = {
     0, 10, 10, 4, 0, 11, 7, 11, 0, 5, 10, 4, 0, 17, 7, 11,
 };
 
-I8080::I8080(ReadMemory rm, WriteMemory wm, ReadIO rio, WriteIO wio)
-    : regs{&regB, &regC, &regD, &regE, &regH, &regL, nullptr, &regA},
-      readMemory(std::move(rm)), writeMemory(std::move(wm)),
-      readIO(std::move(rio)), writeIO(std::move(wio)) {
+I8080::I8080(Core::ReadMemory rm, Core::WriteMemory wm, ReadIO rio, WriteIO wio)
+    : readMemory(std::move(rm)), writeMemory(std::move(wm)),
+      readIO(std::move(rio)), writeIO(std::move(wio)),
+      regs{&regB, &regC, &regD, &regE, &regH, &regL, nullptr, &regA} {
 }
 
 int I8080::step() {
     return cycles += halted ? executeOpcode(Opcode::NOP) : executeOpcode(static_cast<Opcode>(popCommandByte()));
 }
 
-void I8080::jump(const address addr) { programCounter = addr; }
-
-void I8080::reset(const address addr) {
-    interruptEnable = false;
+void I8080::reset(const Core::address addr) {
     halted = false;
+    interruptEnable = false;
     programCounter = addr;
 }
 
-int I8080::getCycles() const { return cycles; }
 bool I8080::isHalted() const { return halted; }
-I8080::address I8080::getProgramCounter() const { return programCounter; }
 
+int I8080::getCycles() const { return cycles; }
 
-I8080::byte I8080::popCommandByte() {
-    const byte v = readMemory(programCounter);
+Core::address I8080::getProgramCounter() const { return programCounter; }
+
+Core::byte I8080::popCommandByte() {
+    const Core::byte v = readMemory(programCounter);
     programCounter = programCounter + 1 & 0xFFFF;
     return v;
 }
 
-I8080::word I8080::popCommandWord() {
+Core::word I8080::popCommandWord() {
     return popCommandByte() | popCommandByte() << 8;
 }
 
-I8080::word I8080::readMemoryWord(const address addr) const {
+Core::word I8080::readMemoryWord(const Core::address addr) const {
     return readMemory(addr) | readMemory(addr + 1 & 0xFFFF) << 8;
 }
 
@@ -92,52 +88,52 @@ I8080::RegisterPair I8080::getRegisterPairFromOpcode(Opcode opcode) {
     return static_cast<RegisterPair>(static_cast<int>(opcode) >> 4 & 0x03);
 }
 
-I8080::byte I8080::readRegisterOrMemory(const Register reg) const {
+Core::byte I8080::readRegisterOrMemory(const Register reg) const {
     if (reg == Register::M) return readMemory(readRegisterPair(RegisterPair::HL));
     return *regs[static_cast<int>(reg)];
 }
 
-void I8080::writeRegisterOrMemory(const Register reg, const byte value) const {
+void I8080::writeRegisterOrMemory(const Register reg, const Core::byte value) const {
     if (reg == Register::M) writeMemory(readRegisterPair(RegisterPair::HL), value);
     else *regs[static_cast<int>(reg)] = value;
 }
 
-I8080::word I8080::readRegisterPair(const RegisterPair pair) const {
+Core::word I8080::readRegisterPair(const RegisterPair pair) const {
     if (pair == RegisterPair::SP_PSW) return stackPointer;
 
     const int idx = static_cast<int>(pair) * 2;
     return *regs[idx] << 8 | *regs[idx + 1];
 }
 
-void I8080::writeRegisterPair(const RegisterPair pair, const word value) {
+void I8080::writeRegisterPair(const RegisterPair pair, const Core::word value) {
     if (pair == RegisterPair::SP_PSW) {
         stackPointer = value;
         return;
     }
 
     const int idx = static_cast<int>(pair) * 2;
-    *regs[idx] = static_cast<byte>(value >> 8);
-    *regs[idx + 1] = static_cast<byte>(value & 0xFF);
+    *regs[idx] = static_cast<Core::byte>(value >> 8);
+    *regs[idx + 1] = static_cast<Core::byte>(value & 0xFF);
 }
 
-void I8080::writeMemoryWord(const address addr, const word v) const {
+void I8080::writeMemoryWord(const Core::address addr, const Core::word v) const {
     writeMemory(addr, v & 0xFF);
     writeMemory(addr + 1 & 0xFFFF, v >> 8);
 }
 
-void I8080::pushStack(const word v) {
+void I8080::pushStack(const Core::word v) {
     stackPointer = stackPointer - 2 & 0xFFFF;
     writeMemoryWord(stackPointer, v);
 }
 
-I8080::word I8080::popStack() {
-    const word v = readMemoryWord(stackPointer);
+Core::word I8080::popStack() {
+    const Core::word v = readMemoryWord(stackPointer);
     stackPointer = stackPointer + 2 & 0xFFFF;
     return v;
 }
 
-I8080::byte I8080::getByteFromFlags() const {
-    byte field = 2;
+Core::byte I8080::getByteFromFlags() const {
+    Core::byte field = 2;
     field |= signFlag ? 0x80 : 0x00;
     field |= zeroFlag ? 0x40 : 0x00;
     field |= auxCarryFlag ? 0x10 : 0x00;
@@ -146,7 +142,7 @@ I8080::byte I8080::getByteFromFlags() const {
     return field;
 }
 
-void I8080::setFlagsFromByte(const byte field) {
+void I8080::setFlagsFromByte(const Core::byte field) {
     signFlag = (field & 0x80) != 0;
     zeroFlag = (field & 0x40) != 0;
     auxCarryFlag = (field & 0x10) != 0;
@@ -154,7 +150,7 @@ void I8080::setFlagsFromByte(const byte field) {
     carryFlag = (field & 0x01) != 0;
 }
 
-void I8080::addWithFlags(const byte value, const bool withCarry) {
+void I8080::addWithFlags(const Core::byte value, const bool withCarry) {
     const int carry = withCarry && carryFlag ? 1 : 0;
 
     auxCarryFlag = (regA & 0x0F) + (value & 0x0F) + carry > 0x0F;
@@ -168,7 +164,7 @@ void I8080::addWithFlags(const byte value, const bool withCarry) {
     parityFlag = PARITY_TABLE[regA];
 }
 
-void I8080::subtractWithFlags(const byte value, const bool withBorrow) {
+void I8080::subtractWithFlags(const Core::byte value, const bool withBorrow) {
     const int borrow = withBorrow && carryFlag ? 1 : 0;
 
     auxCarryFlag = (regA & 0x0F) >= (value & 0x0F) + borrow;
@@ -207,7 +203,7 @@ int I8080::executeDecrement(const Opcode opcode) {
 
 int I8080::executeDecrementPair(const Opcode opcode) {
     const RegisterPair pair = getRegisterPairFromOpcode(opcode);
-    const word value = readRegisterPair(pair);
+    const Core::word value = readRegisterPair(pair);
 
     writeRegisterPair(pair, value - 1 & 0xFFFF);
 
@@ -216,7 +212,7 @@ int I8080::executeDecrementPair(const Opcode opcode) {
 
 int I8080::executeImmediateMove(const Opcode opcode) {
     const Register dest = getDestFromOpcode(opcode);
-    const byte value = popCommandByte();
+    const Core::byte value = popCommandByte();
 
     writeRegisterOrMemory(dest, value);
 
@@ -224,7 +220,7 @@ int I8080::executeImmediateMove(const Opcode opcode) {
 }
 
 int I8080::executeImmediateLoadPair(const Opcode opcode) {
-    const word value = popCommandWord();
+    const Core::word value = popCommandWord();
     const RegisterPair pair = getRegisterPairFromOpcode(opcode);
 
     writeRegisterPair(pair, value);
@@ -234,9 +230,9 @@ int I8080::executeImmediateLoadPair(const Opcode opcode) {
 
 int I8080::executeCompare(const Opcode opcode) {
     const Register src = getSrcFromOpcode(opcode);
-    const byte value = readRegisterOrMemory(src);
+    const Core::byte value = readRegisterOrMemory(src);
 
-    const byte temp = regA;
+    const Core::byte temp = regA;
     subtractWithFlags(value, false);
     regA = temp;
 
@@ -245,7 +241,7 @@ int I8080::executeCompare(const Opcode opcode) {
 
 int I8080::executeLogical(const Opcode opcode) {
     const Register src = getSrcFromOpcode(opcode);
-    const byte value = readRegisterOrMemory(src);
+    const Core::byte value = readRegisterOrMemory(src);
 
     // ReSharper disable once CppDefaultCaseNotHandledInSwitchStatement
     switch (static_cast<int>(opcode) & 0xF8) {
@@ -272,7 +268,7 @@ int I8080::executeLogical(const Opcode opcode) {
 }
 
 int I8080::executeImmediateLogical(const Opcode opcode) {
-    const byte value = popCommandByte();
+    const Core::byte value = popCommandByte();
 
     // ReSharper disable once CppDefaultCaseNotHandledInSwitchStatement
     switch (opcode) {
@@ -300,7 +296,7 @@ int I8080::executeImmediateLogical(const Opcode opcode) {
 
 int I8080::executeSubtract(const Opcode opcode) {
     const Register src = getSrcFromOpcode(opcode);
-    const byte value = readRegisterOrMemory(src);
+    const Core::byte value = readRegisterOrMemory(src);
 
     const bool withBorrow = (static_cast<int>(opcode) & 0x08) != 0;
 
@@ -311,7 +307,7 @@ int I8080::executeSubtract(const Opcode opcode) {
 
 int I8080::executeAdd(const Opcode opcode) {
     const Register src = getSrcFromOpcode(opcode);
-    const byte value = readRegisterOrMemory(src);
+    const Core::byte value = readRegisterOrMemory(src);
 
     const bool withCarry = (static_cast<int>(opcode) & 0x08) != 0;
 
@@ -322,7 +318,7 @@ int I8080::executeAdd(const Opcode opcode) {
 
 int I8080::executeIncrement(const Opcode opcode) {
     const Register src = getSrcFromOpcode(opcode);
-    const byte value = readRegisterOrMemory(src);
+    const Core::byte value = readRegisterOrMemory(src);
 
     writeRegisterOrMemory(src, value + 1);
 
@@ -337,7 +333,7 @@ int I8080::executeIncrement(const Opcode opcode) {
 
 int I8080::executeIncrementPair(const Opcode opcode) {
     const RegisterPair pair = getRegisterPairFromOpcode(opcode);
-    const word value = readRegisterPair(pair);
+    const Core::word value = readRegisterPair(pair);
 
     writeRegisterPair(pair, value + 1 & 0xFFFF);
 
@@ -347,7 +343,7 @@ int I8080::executeIncrementPair(const Opcode opcode) {
 int I8080::executePush(const Opcode opcode) {
     const RegisterPair pair = getRegisterPairFromOpcode(opcode);
 
-    word value = 0;
+    Core::word value = 0;
     if (pair != RegisterPair::SP_PSW) value = readRegisterPair(pair);
     else value = regA << 8 | getByteFromFlags();
 
@@ -357,7 +353,7 @@ int I8080::executePush(const Opcode opcode) {
 }
 
 int I8080::executePop(const Opcode opcode) {
-    const word value = popStack();
+    const Core::word value = popStack();
     const RegisterPair pair = getRegisterPairFromOpcode(opcode);
 
     if (pair != RegisterPair::SP_PSW) writeRegisterPair(pair, value);
@@ -371,9 +367,9 @@ int I8080::executePop(const Opcode opcode) {
 
 int I8080::executeDoubleAdd(const Opcode opcode) {
     const RegisterPair pair = getRegisterPairFromOpcode(opcode);
-    const word value = readRegisterPair(pair);
+    const Core::word value = readRegisterPair(pair);
 
-    const word result = readRegisterPair(RegisterPair::HL) + value;
+    const Core::word result = readRegisterPair(RegisterPair::HL) + value;
     writeRegisterPair(RegisterPair::HL, result);
     carryFlag = result > 0xFFFF;
 
@@ -381,14 +377,14 @@ int I8080::executeDoubleAdd(const Opcode opcode) {
 }
 
 int I8080::executeConditionalJump(const bool condition) {
-    const address addr = popCommandWord();
+    const Core::address addr = popCommandWord();
     if (condition) programCounter = addr;
 
     return 10;
 }
 
 int I8080::executeConditionalCall(const bool condition) {
-    const word value = popStack();
+    const Core::word value = popStack();
     if (!condition) return 11;
     pushStack(programCounter);
     programCounter = value;
@@ -403,7 +399,7 @@ int I8080::executeConditionalReturn(const bool condition) {
 
 int I8080::executeReset(const Opcode opcode) {
     const int index = static_cast<int>(opcode) >> 3 & 0x07;
-    const address addr = index * 0x8;
+    const Core::address addr = index * 0x8;
 
     pushStack(programCounter);
     programCounter = addr;
@@ -436,13 +432,13 @@ int I8080::executeOpcode(Opcode opcode) {
             carryFlag = (regA & 0x80) != 0;
             break;
         case Opcode::RAR: {
-            const byte temp = regA;
+            const Core::byte temp = regA;
             regA = (regA >> 1 | (carryFlag ? 0x80 : 0)) & 0xFF;
             carryFlag = (temp & 0x01) != 0;
             break;
         }
         case Opcode::RAL: {
-            const byte temp = regA;
+            const Core::byte temp = regA;
             regA = (regA << 1 | (carryFlag ? 0x01 : 0)) & 0xFF;
             carryFlag = (temp & 0x80) != 0;
             break;
@@ -466,24 +462,24 @@ int I8080::executeOpcode(Opcode opcode) {
             regA = readMemory(popCommandWord());
             break;
         case Opcode::CPI: {
-            const byte value = popCommandByte();
-            const byte temp = regA;
+            const Core::byte value = popCommandByte();
+            const Core::byte temp = regA;
             subtractWithFlags(value, false);
             regA = temp;
             break;
         }
         case Opcode::SUI: {
-            const byte value = popCommandByte();
+            const Core::byte value = popCommandByte();
             subtractWithFlags(value, false);
             break;
         }
         case Opcode::SBI: {
-            const byte value = popCommandByte();
+            const Core::byte value = popCommandByte();
             subtractWithFlags(value, true);
             break;
         }
         case Opcode::XCHG: {
-            byte temp = regL;
+            Core::byte temp = regL;
             regL = regE;
             regE = temp;
             temp = regH;
@@ -492,12 +488,12 @@ int I8080::executeOpcode(Opcode opcode) {
             break;
         }
         case Opcode::ADI: {
-            const byte value = popCommandByte();
+            const Core::byte value = popCommandByte();
             addWithFlags(value, false);
             break;
         }
         case Opcode::ACI: {
-            const byte value = popCommandByte();
+            const Core::byte value = popCommandByte();
             addWithFlags(value, true);
             break;
         }
@@ -515,7 +511,7 @@ int I8080::executeOpcode(Opcode opcode) {
             halted = true;
             break;
         case Opcode::XTHL: {
-            const word value = readMemoryWord(stackPointer);
+            const Core::word value = readMemoryWord(stackPointer);
             writeMemoryWord(stackPointer, readRegisterPair(RegisterPair::HL));
             writeRegisterPair(RegisterPair::HL, value);
             break;
@@ -553,7 +549,7 @@ int I8080::executeOpcode(Opcode opcode) {
         case Opcode::CALL_DD:
         case Opcode::CALL_ED:
         case Opcode::CALL_FD: {
-            const word temp = popCommandWord();
+            const Core::word temp = popCommandWord();
             pushStack(programCounter);
             programCounter = temp;
             break;
