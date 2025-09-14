@@ -9,3 +9,7 @@ add_executable(
         main.cpp
         I8080.cpp
 )
+
+find_package(cxxopts QUIET)
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${CXXOPTS_INCLUDE_DIRS})

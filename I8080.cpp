@@ -658,7 +658,6 @@ int I8080::executeOpcode(Opcode opcode) {
             // LXI.
             if ((static_cast<int>(opcode) & 0x0F) == 0x01) return executeImmediateLoadPair(opcode);
 
-
             // ANI / XRI / ORI.
             if ((static_cast<int>(opcode) & 0xE7) == 0xE6 && opcode != Opcode::CPI) {
                 return executeImmediateLogical(opcode);
@@ -667,6 +666,7 @@ int I8080::executeOpcode(Opcode opcode) {
             // ANA / XRA / ORA.
             if (opcode >= Opcode::ANA_B && opcode <= Opcode::ORA_A) return executeLogical(opcode);
 
+            // Halt.
             halted = true;
             std::printf("unknown opcode: %02x\n", opcode);
             break;
