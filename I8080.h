@@ -5,9 +5,6 @@
 
 class I8080 {
 public:
-    using ReadIO = std::function<Core::byte(Core::address)>;
-    using WriteIO = std::function<void(Core::address, Core::byte)>;
-
     static constexpr float FREQUENCY = 25000000.0;
 
     enum class Opcode : Core::byte {
@@ -45,7 +42,7 @@ public:
         RM, SPHL, JM, EI, CM, CALL_FD, CPI, RST_7,
     };
 
-    I8080(Core::ReadMemory rm, Core::WriteMemory wm, ReadIO rio, WriteIO wio);
+    I8080(Core::ReadMemory rm, Core::WriteMemory wm, Core::ReadMemory rio, Core::WriteMemory wio);
 
     int step();
 
@@ -68,8 +65,8 @@ private:
 
     Core::ReadMemory readMemory;
     Core::WriteMemory writeMemory;
-    ReadIO readIO;
-    WriteIO writeIO;
+    Core::ReadMemory readIO;
+    Core::WriteMemory writeIO;
 
     Core::byte regA{}, regB{}, regC{}, regD{}, regE{}, regH{}, regL{};
     Core::byte *regs[8];
@@ -86,11 +83,11 @@ private:
 
     Core::word readMemoryWord(Core::address addr) const;
 
-    static Register getDestFromOpcode(Opcode opcode);
+    static Register GetDestinationFromOpcode(Opcode opcode);
 
-    static Register getSrcFromOpcode(Opcode opcode);
+    static Register GetSourceFromOpcode(Opcode opcode);
 
-    static RegisterPair getRegisterPairFromOpcode(Opcode opcode);
+    static RegisterPair GetRegisterPairFromOpcode(Opcode opcode);
 
     Core::byte readRegisterOrMemory(Register reg) const;
 

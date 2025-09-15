@@ -8,9 +8,8 @@ add_executable(
         ${PROJECT_NAME}
         main.cpp
         I8080.cpp
-        Display.cpp
+        Screen.cpp
         Hardware.cpp
-        Hardware.h
 )
 
 find_package(cxxopts REQUIRED)

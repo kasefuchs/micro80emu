@@ -40,7 +40,7 @@ const int I8080::OPCODE_CYCLES[256] = {
     0, 10, 10, 4, 0, 11, 7, 11, 0, 5, 10, 4, 0, 17, 7, 11,
 };
 
-I8080::I8080(Core::ReadMemory rm, Core::WriteMemory wm, ReadIO rio, WriteIO wio)
+I8080::I8080(Core::ReadMemory rm, Core::WriteMemory wm, Core::ReadMemory rio, Core::WriteMemory wio)
     : readMemory(std::move(rm)), writeMemory(std::move(wm)),
       readIO(std::move(rio)), writeIO(std::move(wio)),
       regs{&regB, &regC, &regD, &regE, &regH, &regL, nullptr, &regA} {
@@ -76,15 +76,15 @@ Core::word I8080::readMemoryWord(const Core::address addr) const {
     return readMemory(addr) | readMemory(addr + 1 & 0xFFFF) << 8;
 }
 
-I8080::Register I8080::getDestFromOpcode(Opcode opcode) {
+I8080::Register I8080::GetDestinationFromOpcode(Opcode opcode) {
     return static_cast<Register>(static_cast<int>(opcode) >> 3 & 0x07);
 }
 
-I8080::Register I8080::getSrcFromOpcode(Opcode opcode) {
+I8080::Register I8080::GetSourceFromOpcode(Opcode opcode) {
     return static_cast<Register>(static_cast<int>(opcode) & 0x07);
 }
 
-I8080::RegisterPair I8080::getRegisterPairFromOpcode(Opcode opcode) {
+I8080::RegisterPair I8080::GetRegisterPairFromOpcode(Opcode opcode) {
     return static_cast<RegisterPair>(static_cast<int>(opcode) >> 4 & 0x03);
 }
 
@@ -179,8 +179,8 @@ void I8080::subtractWithFlags(const Core::byte value, const bool withBorrow) {
 }
 
 int I8080::executeMove(const Opcode opcode) const {
-    const Register src = getSrcFromOpcode(opcode);
-    const Register dest = getDestFromOpcode(opcode);
+    const Register src = GetSourceFromOpcode(opcode);
+    const Register dest = GetDestinationFromOpcode(opcode);
 
     writeRegisterOrMemory(dest, readRegisterOrMemory(src));
 
@@ -188,7 +188,7 @@ int I8080::executeMove(const Opcode opcode) const {
 }
 
 int I8080::executeDecrement(const Opcode opcode) {
-    const Register dest = getDestFromOpcode(opcode);
+    const Register dest = GetDestinationFromOpcode(opcode);
 
     const int value = readRegisterOrMemory(dest) - 1 & 0xFF;
     writeRegisterOrMemory(dest, value);
@@ -202,7 +202,7 @@ int I8080::executeDecrement(const Opcode opcode) {
 }
 
 int I8080::executeDecrementPair(const Opcode opcode) {
-    const RegisterPair pair = getRegisterPairFromOpcode(opcode);
+    const RegisterPair pair = GetRegisterPairFromOpcode(opcode);
     const Core::word value = readRegisterPair(pair);
 
     writeRegisterPair(pair, value - 1 & 0xFFFF);
@@ -211,7 +211,7 @@ int I8080::executeDecrementPair(const Opcode opcode) {
 }
 
 int I8080::executeImmediateMove(const Opcode opcode) {
-    const Register dest = getDestFromOpcode(opcode);
+    const Register dest = GetDestinationFromOpcode(opcode);
     const Core::byte value = popCommandByte();
 
     writeRegisterOrMemory(dest, value);
@@ -221,7 +221,7 @@ int I8080::executeImmediateMove(const Opcode opcode) {
 
 int I8080::executeImmediateLoadPair(const Opcode opcode) {
     const Core::word value = popCommandWord();
-    const RegisterPair pair = getRegisterPairFromOpcode(opcode);
+    const RegisterPair pair = GetRegisterPairFromOpcode(opcode);
 
     writeRegisterPair(pair, value);
 
@@ -229,7 +229,7 @@ int I8080::executeImmediateLoadPair(const Opcode opcode) {
 }
 
 int I8080::executeCompare(const Opcode opcode) {
-    const Register src = getSrcFromOpcode(opcode);
+    const Register src = GetSourceFromOpcode(opcode);
     const Core::byte value = readRegisterOrMemory(src);
 
     const Core::byte temp = regA;
@@ -240,7 +240,7 @@ int I8080::executeCompare(const Opcode opcode) {
 }
 
 int I8080::executeLogical(const Opcode opcode) {
-    const Register src = getSrcFromOpcode(opcode);
+    const Register src = GetSourceFromOpcode(opcode);
     const Core::byte value = readRegisterOrMemory(src);
 
     // ReSharper disable once CppDefaultCaseNotHandledInSwitchStatement
@@ -295,7 +295,7 @@ int I8080::executeImmediateLogical(const Opcode opcode) {
 }
 
 int I8080::executeSubtract(const Opcode opcode) {
-    const Register src = getSrcFromOpcode(opcode);
+    const Register src = GetSourceFromOpcode(opcode);
     const Core::byte value = readRegisterOrMemory(src);
 
     const bool withBorrow = (static_cast<int>(opcode) & 0x08) != 0;
@@ -306,7 +306,7 @@ int I8080::executeSubtract(const Opcode opcode) {
 }
 
 int I8080::executeAdd(const Opcode opcode) {
-    const Register src = getSrcFromOpcode(opcode);
+    const Register src = GetSourceFromOpcode(opcode);
     const Core::byte value = readRegisterOrMemory(src);
 
     const bool withCarry = (static_cast<int>(opcode) & 0x08) != 0;
@@ -317,7 +317,7 @@ int I8080::executeAdd(const Opcode opcode) {
 }
 
 int I8080::executeIncrement(const Opcode opcode) {
-    const Register src = getSrcFromOpcode(opcode);
+    const Register src = GetSourceFromOpcode(opcode);
     const Core::byte value = readRegisterOrMemory(src);
 
     writeRegisterOrMemory(src, value + 1);
@@ -332,7 +332,7 @@ int I8080::executeIncrement(const Opcode opcode) {
 }
 
 int I8080::executeIncrementPair(const Opcode opcode) {
-    const RegisterPair pair = getRegisterPairFromOpcode(opcode);
+    const RegisterPair pair = GetRegisterPairFromOpcode(opcode);
     const Core::word value = readRegisterPair(pair);
 
     writeRegisterPair(pair, value + 1 & 0xFFFF);
@@ -341,7 +341,7 @@ int I8080::executeIncrementPair(const Opcode opcode) {
 }
 
 int I8080::executePush(const Opcode opcode) {
-    const RegisterPair pair = getRegisterPairFromOpcode(opcode);
+    const RegisterPair pair = GetRegisterPairFromOpcode(opcode);
 
     Core::word value = 0;
     if (pair != RegisterPair::SP_PSW) value = readRegisterPair(pair);
@@ -354,7 +354,7 @@ int I8080::executePush(const Opcode opcode) {
 
 int I8080::executePop(const Opcode opcode) {
     const Core::word value = popStack();
-    const RegisterPair pair = getRegisterPairFromOpcode(opcode);
+    const RegisterPair pair = GetRegisterPairFromOpcode(opcode);
 
     if (pair != RegisterPair::SP_PSW) writeRegisterPair(pair, value);
     else {
@@ -366,7 +366,7 @@ int I8080::executePop(const Opcode opcode) {
 }
 
 int I8080::executeDoubleAdd(const Opcode opcode) {
-    const RegisterPair pair = getRegisterPairFromOpcode(opcode);
+    const RegisterPair pair = GetRegisterPairFromOpcode(opcode);
     const Core::word value = readRegisterPair(pair);
 
     const Core::word result = readRegisterPair(RegisterPair::HL) + value;

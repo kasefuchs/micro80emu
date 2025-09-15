@@ -1,11 +1,11 @@
 #pragma once
-#include "Display.h"
+#include "Screen.h"
 #include "I8080.h"
 #include "Types.h"
 
 class Hardware {
 public:
-    Hardware(Core::ReadMemory rm, Core::WriteMemory wm);
+    Hardware(Core::ReadMemory rm, Core::WriteMemory wm, Core::ReadMemory rf);
 
     void run(Core::address entryAddr);
 
@@ -16,6 +16,7 @@ public:
 private:
     Core::ReadMemory readMemory;
     Core::WriteMemory writeMemory;
+    Core::ReadMemory readFont;
 
     static Core::byte readIO(Core::address addr);
 
@@ -23,7 +24,7 @@ private:
 
     bool stopped{};
 
-    Display display;
+    Screen screen;
     I8080 cpu;
 };
 

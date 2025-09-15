@@ -4,17 +4,22 @@
 #include <cxxopts.hpp>
 
 #include "Hardware.h"
+#include "Screen.h"
 
 Core::byte rom[0x800];
+Core::byte font[0x2000];
 Core::byte memory[0xF800];
 
-constexpr Core::address ROM_START = 0xF800;
+constexpr Core::address ROM_OFFSET = 0xF800;
 Hardware hardware(
     [](const Core::address addr) {
-        return addr >= ROM_START ? rom[addr % sizeof(rom)] : memory[addr];
+        return addr >= ROM_OFFSET ? rom[addr % sizeof(rom)] : memory[addr];
     },
     [](const Core::address addr, const Core::byte val) {
-        if (addr < ROM_START) memory[addr] = val;
+        if (addr < ROM_OFFSET) memory[addr] = val;
+    },
+    [](const Core::address addr) {
+        return font[addr];
     }
 );
 
@@ -32,8 +37,10 @@ int main(const int argc, char *argv[]) {
             ("h,help", "display this help")
             ("r,rom", "ROM image file", cxxopts::value<std::string>()->default_value("rom.bin"))
             ("m,mem", "memory image file", cxxopts::value<std::string>())
+            ("f,font", "font image file", cxxopts::value<std::string>()->default_value("font.bin"))
             ("d,dump", "write memory dump to file before exit", cxxopts::value<std::string>())
-            ("e,entry", "entry address for CPU reset (hex)", cxxopts::value<std::string>()->default_value("0xF800"));
+            ("e,entry", "entry address for CPU reset (hex)", cxxopts::value<std::string>()->default_value("0xF800"))
+            ("s,scale", "screen scaling factor", cxxopts::value<float>()->default_value("2"));
 
     const auto result = options.parse(argc, argv);
     if (result.count("help")) {
@@ -41,10 +48,18 @@ int main(const int argc, char *argv[]) {
         return 0;
     }
 
+    // Set window scale.
+    Screen::SetWindowScale(result["scale"].as<float>());
+
     // Load ROM image
     std::ifstream romFile(result["rom"].as<std::string>(), std::ios::binary);
     romFile.read(reinterpret_cast<char *>(rom), sizeof(rom));
     romFile.close();
+
+    // Load font image
+    std::ifstream fontFile(result["font"].as<std::string>(), std::ios::binary);
+    fontFile.read(reinterpret_cast<char *>(font), sizeof(font));
+    fontFile.close();
 
     // Load memory image if exists
     if (result.count("mem")) {
