@@ -11,19 +11,12 @@ Core::byte font[0x2000];
 Core::byte memory[0xF800];
 
 constexpr Core::address ROM_OFFSET = 0xF800;
-Hardware hardware(
-    [](const Core::address addr) {
-        return addr >= ROM_OFFSET ? rom[addr % sizeof(rom)] : memory[addr];
-    },
-    [](const Core::address addr, const Core::byte val) {
-        if (addr < ROM_OFFSET) memory[addr] = val;
-    },
-    [](const Core::address addr) {
-        return font[addr];
-    }
-);
 
-void signalHandler(const int _) { hardware.stop(); }
+static Hardware *hardwarePtr = nullptr;
+
+void signalHandler(int) {
+    if (hardwarePtr) hardwarePtr->stop();
+}
 
 cxxopts::Options options("micro80emu", "Micro-80 Emulator");
 
@@ -48,9 +41,6 @@ int main(const int argc, char *argv[]) {
         return 0;
     }
 
-    // Set window scale.
-    Screen::SetWindowScale(result["scale"].as<float>());
-
     // Load ROM image
     std::ifstream romFile(result["rom"].as<std::string>(), std::ios::binary);
     romFile.read(reinterpret_cast<char *>(rom), sizeof(rom));
@@ -70,6 +60,24 @@ int main(const int argc, char *argv[]) {
 
     // Parse entry address
     const Core::address entryAddr = std::stoul(result["entry"].as<std::string>(), nullptr, 16);
+
+    // Initialize hardware.
+    static Hardware hardware(
+        [](const Core::address addr) {
+            return addr >= ROM_OFFSET ? rom[addr % sizeof(rom)] : memory[addr];
+        },
+        [](const Core::address addr, const Core::byte val) {
+            if (addr < ROM_OFFSET) memory[addr] = val;
+        },
+        [](const Core::address addr) {
+            return font[addr];
+        }
+    );
+
+    hardwarePtr = &hardware;
+
+    // Set window scale.
+    Screen::SetWindowScale(result["scale"].as<float>());
 
     hardware.run(entryAddr);
 
