@@ -22,18 +22,20 @@ private:
     static constexpr Core::address CHAR_CODE_OFFSET = 0xE800;
     static constexpr Core::address ATTRIBUTE_OFFSET = 0xE000;
 
-    static constexpr int CHAR_WIDTH = 8;
-    static constexpr int CHAR_HEIGHT = 10;
-
     static constexpr int COLUMNS = 64;
     static constexpr int ROWS = 32;
+
+    static constexpr int CHAR_WIDTH = 8;
+    static constexpr int CHAR_HEIGHT = 10;
 
     static constexpr int WIDTH = COLUMNS * CHAR_WIDTH;
     static constexpr int HEIGHT = ROWS * CHAR_HEIGHT;
 
     static constexpr int WINDOW_FPS = 30;
 
-    static constexpr int COLOR_INTENSITY = 0xA0;
+    static constexpr auto COLOR_TEXT = WHITE;
+    static constexpr auto COLOR_BACKGROUND = BLACK;
+    static constexpr Core::byte COLOR_INTENSITY = 0xA0;
 
     Image buffer{};
     Texture2D target{};

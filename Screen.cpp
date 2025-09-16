@@ -8,7 +8,7 @@ Screen::Screen(Core::ReadMemory rm, Core::ReadMemory rf)
     SetTargetFPS(WINDOW_FPS);
     InitWindow(WIDTH, HEIGHT, "Micro-80 Emulator Screen");
 
-    buffer = GenImageColor(WIDTH, HEIGHT, BLACK);
+    buffer = GenImageColor(WIDTH, HEIGHT, COLOR_BACKGROUND);
     target = LoadTextureFromImage(buffer);
 }
 
@@ -38,9 +38,9 @@ bool Screen::HasColor(const Core::byte attribute) {
 }
 
 Color Screen::GetTextColor(const Core::byte attribute) {
-    if (!HasColor(attribute)) return WHITE;
+    if (!HasColor(attribute)) return COLOR_TEXT;
 
-    const int intensityAdjustment = (attribute >> 3 & 1) * (0xFF - COLOR_INTENSITY);
+    const Core::byte intensityAdjustment = (attribute >> 3 & 1) * (0xFF - COLOR_INTENSITY);
     const Core::byte red = (attribute >> 2 & 1) * COLOR_INTENSITY + intensityAdjustment;
     const Core::byte green = (attribute >> 1 & 1) * COLOR_INTENSITY + intensityAdjustment;
     const Core::byte blue = (attribute >> 0 & 1) * COLOR_INTENSITY + intensityAdjustment;
@@ -48,7 +48,7 @@ Color Screen::GetTextColor(const Core::byte attribute) {
 }
 
 Color Screen::GetBackgroundColor(const Core::byte attribute) {
-    if (!HasColor(attribute)) return BLACK;
+    if (!HasColor(attribute)) return COLOR_BACKGROUND;
 
     const Core::byte red = (attribute >> 6 & 1) * COLOR_INTENSITY;
     const Core::byte green = (attribute >> 5 & 1) * COLOR_INTENSITY;
@@ -86,7 +86,7 @@ void Screen::drawCharacter(
                 color = pixelOn ? backgroundColor : textColor;
             } else color = invertNextBit ? textColor : backgroundColor;
 
-            static_cast<Color *>(buffer.data)[y * WIDTH + x] = color;
+            static_cast<Color *>(buffer.data)[WIDTH * y + x] = color;
         }
     }
 }
