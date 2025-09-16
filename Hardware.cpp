@@ -24,7 +24,7 @@ void Hardware::run(const Core::address entryAddr) {
         BeginDrawing();
         {
             const float delta = GetFrameTime();
-            double cyclesToRun = delta * I8080::FREQUENCY + leftoverCycles;
+            double cyclesToRun = delta * clockRate * I8080::FREQUENCY + leftoverCycles;
             while (cyclesToRun > 0) cyclesToRun -= cpu.step();
             leftoverCycles = cyclesToRun;
 
@@ -36,6 +36,10 @@ void Hardware::run(const Core::address entryAddr) {
 
 void Hardware::stop() {
     stopped = true;
+}
+
+void Hardware::setClockRate(const float value) {
+    clockRate = value;
 }
 
 bool Hardware::isStopped() const {

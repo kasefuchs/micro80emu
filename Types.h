@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <functional>
 
 namespace Core {
     using byte = std::uint8_t;

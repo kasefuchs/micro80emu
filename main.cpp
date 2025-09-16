@@ -18,6 +18,12 @@ void signalHandler(int) {
     if (hardwarePtr) hardwarePtr->stop();
 }
 
+void loadBinaryFile(const std::string &path, void *buffer, const std::streamsize size) {
+    std::ifstream file(path, std::ios::binary);
+    file.read(static_cast<char *>(buffer), size);
+    file.close();
+}
+
 cxxopts::Options options("micro80emu", "Micro-80 Emulator");
 
 int main(const int argc, char *argv[]) {
@@ -33,6 +39,7 @@ int main(const int argc, char *argv[]) {
             ("f,font", "font image file", cxxopts::value<std::string>()->default_value("font.bin"))
             ("d,dump", "write memory dump to file before exit", cxxopts::value<std::string>())
             ("e,entry", "entry address for CPU reset (hex)", cxxopts::value<std::string>()->default_value("0xF800"))
+            ("c,clock", "CPU clock rate", cxxopts::value<float>()->default_value("1"))
             ("s,scale", "screen scaling factor", cxxopts::value<float>()->default_value("2"));
 
     const auto result = options.parse(argc, argv);
@@ -42,24 +49,13 @@ int main(const int argc, char *argv[]) {
     }
 
     // Load ROM image
-    std::ifstream romFile(result["rom"].as<std::string>(), std::ios::binary);
-    romFile.read(reinterpret_cast<char *>(rom), sizeof(rom));
-    romFile.close();
+    loadBinaryFile(result["rom"].as<std::string>(), rom, sizeof(rom));
 
     // Load font image
-    std::ifstream fontFile(result["font"].as<std::string>(), std::ios::binary);
-    fontFile.read(reinterpret_cast<char *>(font), sizeof(font));
-    fontFile.close();
+    loadBinaryFile(result["font"].as<std::string>(), font, sizeof(font));
 
     // Load memory image if exists
-    if (result.count("mem")) {
-        std::ifstream memFile(result["mem"].as<std::string>(), std::ios::binary);
-        memFile.read(reinterpret_cast<char *>(memory), sizeof(memory));
-        memFile.close();
-    }
-
-    // Parse entry address
-    const Core::address entryAddr = std::stoul(result["entry"].as<std::string>(), nullptr, 16);
+    if (result.count("mem")) loadBinaryFile(result["mem"].as<std::string>(), memory, sizeof(memory));
 
     // Initialize hardware.
     static Hardware hardware(
@@ -78,6 +74,12 @@ int main(const int argc, char *argv[]) {
 
     // Set window scale.
     Screen::SetWindowScale(result["scale"].as<float>());
+
+    // Set CPU clock rate.
+    hardware.setClockRate(result["clock"].as<float>());
+
+    // Parse entry address
+    const Core::address entryAddr = std::stoul(result["entry"].as<std::string>(), nullptr, 16);
 
     hardware.run(entryAddr);
 

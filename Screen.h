@@ -36,10 +36,12 @@ private:
     static constexpr int COLOR_INTENSITY = 0xA0;
 
     Image buffer{};
-    RenderTexture2D target{};
+    Texture2D target{};
 
     Core::ReadMemory readMemory;
     Core::ReadMemory readFont;
+
+    static bool HasColor(Core::byte attribute);
 
     static Color GetTextColor(Core::byte attribute);
 

@@ -11,12 +11,16 @@ public:
 
     void stop();
 
+    void setClockRate(float value);
+
     [[nodiscard]] bool isStopped() const;
 
 private:
     Core::ReadMemory readMemory;
     Core::WriteMemory writeMemory;
     Core::ReadMemory readFont;
+
+    float clockRate = 1.0f;
 
     static Core::byte readIO(Core::address addr);
 
