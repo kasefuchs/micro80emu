@@ -46,7 +46,7 @@ I8080::I8080(Core::ReadMemory rm, Core::WriteMemory wm, Core::ReadMemory rio, Co
       regs{&regB, &regC, &regD, &regE, &regH, &regL, nullptr, &regA} {
 }
 
-int I8080::step() {
+long int I8080::step() {
     return cycles += halted ? executeOpcode(Opcode::NOP) : executeOpcode(static_cast<Opcode>(popCommandByte()));
 }
 
@@ -58,7 +58,7 @@ void I8080::reset(const Core::address addr) {
 
 bool I8080::isHalted() const { return halted; }
 
-int I8080::getCycles() const { return cycles; }
+long int I8080::getCycles() const { return cycles; }
 
 Core::address I8080::getProgramCounter() const { return programCounter; }
 

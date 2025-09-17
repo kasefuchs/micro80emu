@@ -4,37 +4,19 @@
 
 Screen::Screen(Core::ReadMemory rm, Core::ReadMemory rf)
     : readMemory(std::move(rm)), readFont(std::move(rf)) {
-    SetTraceLogLevel(LOG_ERROR);
-    SetTargetFPS(WINDOW_FPS);
-    InitWindow(WIDTH, HEIGHT, "Micro-80 Emulator Screen");
-
-    buffer = GenImageColor(WIDTH, HEIGHT, COLOR_BACKGROUND);
-    target = LoadTextureFromImage(buffer);
 }
 
 Screen::~Screen() {
     UnloadTexture(target);
-
-    CloseWindow();
-}
-
-Rectangle Screen::GetWindowBounds() {
-    const int width = GetScreenWidth();
-    const int height = GetScreenHeight();
-
-    return {0, 0, static_cast<float>(width), static_cast<float>(height)};
-}
-
-void Screen::SetWindowScale(const float value) {
-    SetWindowSize(static_cast<int>(WIDTH * value), static_cast<int>(HEIGHT * value));
-}
-
-void Screen::ShouldClose() {
-    WindowShouldClose();
+    UnloadImage(buffer);
 }
 
 bool Screen::HasColor(const Core::byte attribute) {
     return attribute & 0x7F;
+}
+
+Rectangle Screen::GetTextureBounds() {
+    return {0, 0, WIDTH, HEIGHT};
 }
 
 Color Screen::GetTextColor(const Core::byte attribute) {
@@ -56,13 +38,16 @@ Color Screen::GetBackgroundColor(const Core::byte attribute) {
     return {red, green, blue, 0xFF};
 }
 
-void Screen::draw() const {
-    const Rectangle bounds = GetWindowBounds();
-
-    DrawTexturePro(target, {0, 0, WIDTH, HEIGHT}, bounds, {0, 0}, 0.0f, RAYWHITE);
+void Screen::initialize() {
+    buffer = GenImageColor(WIDTH, HEIGHT, COLOR_BACKGROUND);
+    target = LoadTextureFromImage(buffer);
 }
 
-void Screen::drawCharacter(
+Texture2D Screen::getTexture() const {
+    return target;
+}
+
+void Screen::drawCell(
     const int column, const int row,
     const Core::byte code, const Core::byte attribute
 ) const {
@@ -71,16 +56,16 @@ void Screen::drawCharacter(
     const Color textColor = GetTextColor(attribute);
     const Color backgroundColor = GetBackgroundColor(attribute);
 
-    for (int dy = 0; dy < CHAR_HEIGHT; dy++) {
+    for (int dy = 0; dy < CELL_HEIGHT; dy++) {
         const Core::byte fontData = readFont(
             dy % 8 + code * 8 + (dy & 8 ? 0x800 : 0) + (attribute & 0x80 ? 0x1000 : 0));
 
-        for (int dx = 0; dx < CHAR_WIDTH; dx++) {
-            const int x = column * CHAR_WIDTH + dx;
-            const int y = row * CHAR_HEIGHT + dy;
+        for (int dx = 0; dx < CELL_WIDTH; dx++) {
+            const int x = column * CELL_WIDTH + dx;
+            const int y = row * CELL_HEIGHT + dy;
 
             Color color;
-            if (dy < 8) {
+            if (dy < CHAR_HEIGHT) {
                 bool pixelOn = fontData & 0x80 >> dx;
                 if (invertNextBit) pixelOn = !pixelOn;
                 color = pixelOn ? backgroundColor : textColor;
@@ -91,7 +76,7 @@ void Screen::drawCharacter(
     }
 }
 
-void Screen::render() const {
+void Screen::updateTexture() const {
     Core::address charCodeAddress = CHAR_CODE_OFFSET;
     Core::address attributeAddress = ATTRIBUTE_OFFSET;
 
@@ -100,7 +85,7 @@ void Screen::render() const {
             const Core::byte code = readMemory(charCodeAddress++);
             const Core::byte attribute = readMemory(attributeAddress++);
 
-            drawCharacter(column, row, code, attribute);
+            drawCell(column, row, code, attribute);
         }
     }
 

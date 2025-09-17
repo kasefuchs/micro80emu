@@ -38,9 +38,7 @@ int main(const int argc, char *argv[]) {
             ("m,mem", "memory image file", cxxopts::value<std::string>())
             ("f,font", "font image file", cxxopts::value<std::string>()->default_value("font.rom"))
             ("d,dump", "write memory dump to file before exit", cxxopts::value<std::string>())
-            ("e,entry", "entry address for CPU reset (hex)", cxxopts::value<std::string>()->default_value("0xF800"))
-            ("c,clock", "CPU clock rate", cxxopts::value<float>()->default_value("1"))
-            ("s,scale", "screen scaling factor", cxxopts::value<float>()->default_value("2"));
+            ("e,entry", "entry address for CPU reset (hex)", cxxopts::value<std::string>()->default_value("0xF800"));
 
     const auto result = options.parse(argc, argv);
     if (result.count("help")) {
@@ -71,12 +69,6 @@ int main(const int argc, char *argv[]) {
     );
 
     hardwarePtr = &hardware;
-
-    // Set window scale.
-    Screen::SetWindowScale(result["scale"].as<float>());
-
-    // Set CPU clock rate.
-    hardware.setClockRate(result["clock"].as<float>());
 
     // Parse entry address
     const Core::address entryAddr = std::stoul(result["entry"].as<std::string>(), nullptr, 16);

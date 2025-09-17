@@ -11,24 +11,24 @@ public:
 
     void stop();
 
-    void setClockRate(float value);
-
-    [[nodiscard]] bool isStopped() const;
+    [[nodiscard]] bool shouldExit() const;
 
 private:
+    static Rectangle GetWindowBounds();
+
+    static Core::byte ReadIO(Core::address addr);
+
+    static void WriteIO(Core::address addr, Core::byte value);
+
     Core::ReadMemory readMemory;
     Core::WriteMemory writeMemory;
     Core::ReadMemory readFont;
 
-    float clockRate = 1.0f;
-
-    static Core::byte readIO(Core::address addr);
-
-    static void writeIO(Core::address addr, Core::byte value);
-
     bool stopped{};
 
-    Screen screen;
     I8080 cpu;
+    Screen screen;
+
+    void initializeGraphics();
 };
 

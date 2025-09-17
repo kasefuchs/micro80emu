@@ -44,13 +44,13 @@ public:
 
     I8080(Core::ReadMemory rm, Core::WriteMemory wm, Core::ReadMemory rio, Core::WriteMemory wio);
 
-    int step();
+    long int step();
 
     void reset(Core::address addr = 0x0);
 
     [[nodiscard]] bool isHalted() const;
 
-    [[nodiscard]] int getCycles() const;
+    [[nodiscard]] long int getCycles() const;
 
     [[nodiscard]] Core::address getProgramCounter() const;
 
@@ -75,7 +75,7 @@ private:
     bool signFlag{}, parityFlag{}, auxCarryFlag{}, zeroFlag{}, carryFlag{};
     bool interruptEnable{}, halted{};
 
-    int cycles{};
+    long int cycles{};
 
     Core::byte popCommandByte();
 

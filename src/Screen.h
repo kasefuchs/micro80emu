@@ -10,13 +10,13 @@ public:
 
     ~Screen();
 
-    static void SetWindowScale(float value);
+    static Rectangle GetTextureBounds();
 
-    static void ShouldClose();
+    void initialize();
 
-    void draw() const;
+    void updateTexture() const;
 
-    void render() const;
+    Texture2D getTexture() const;
 
 private:
     static constexpr Core::address CHAR_CODE_OFFSET = 0xE800;
@@ -25,23 +25,16 @@ private:
     static constexpr int COLUMNS = 64;
     static constexpr int ROWS = 32;
 
-    static constexpr int CHAR_WIDTH = 8;
-    static constexpr int CHAR_HEIGHT = 10;
+    static constexpr int CELL_WIDTH = 8;
+    static constexpr int CELL_HEIGHT = 10;
+    static constexpr int CHAR_HEIGHT = 8;
 
-    static constexpr int WIDTH = COLUMNS * CHAR_WIDTH;
-    static constexpr int HEIGHT = ROWS * CHAR_HEIGHT;
-
-    static constexpr int WINDOW_FPS = 30;
+    static constexpr int WIDTH = COLUMNS * CELL_WIDTH;
+    static constexpr int HEIGHT = ROWS * CELL_HEIGHT;
 
     static constexpr auto COLOR_TEXT = WHITE;
     static constexpr auto COLOR_BACKGROUND = BLACK;
     static constexpr Core::byte COLOR_INTENSITY = 0xA0;
-
-    Image buffer{};
-    Texture2D target{};
-
-    Core::ReadMemory readMemory;
-    Core::ReadMemory readFont;
 
     static bool HasColor(Core::byte attribute);
 
@@ -49,7 +42,11 @@ private:
 
     static Color GetBackgroundColor(Core::byte attribute);
 
-    static Rectangle GetWindowBounds();
+    Core::ReadMemory readMemory;
+    Core::ReadMemory readFont;
 
-    void drawCharacter(int column, int row, Core::byte code, Core::byte attribute) const;
+    Image buffer{};
+    Texture2D target{};
+
+    void drawCell(int column, int row, Core::byte code, Core::byte attribute) const;
 };
