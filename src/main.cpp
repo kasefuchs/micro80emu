@@ -34,9 +34,9 @@ int main(const int argc, char *argv[]) {
     // CLI options.
     options.add_options()
             ("h,help", "display this help")
-            ("r,rom", "ROM image file", cxxopts::value<std::string>()->default_value("rom.bin"))
+            ("r,rom", "ROM image file", cxxopts::value<std::string>()->default_value("monitor.rom"))
             ("m,mem", "memory image file", cxxopts::value<std::string>())
-            ("f,font", "font image file", cxxopts::value<std::string>()->default_value("font.bin"))
+            ("f,font", "font image file", cxxopts::value<std::string>()->default_value("font.rom"))
             ("d,dump", "write memory dump to file before exit", cxxopts::value<std::string>())
             ("e,entry", "entry address for CPU reset (hex)", cxxopts::value<std::string>()->default_value("0xF800"))
             ("c,clock", "CPU clock rate", cxxopts::value<float>()->default_value("1"))
