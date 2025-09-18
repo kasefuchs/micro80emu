@@ -317,18 +317,18 @@ int I8080::executeAdd(const Opcode opcode) {
 }
 
 int I8080::executeIncrement(const Opcode opcode) {
-    const Register src = GetSourceFromOpcode(opcode);
-    const Core::byte value = readRegisterOrMemory(src);
+    const Register dest = GetDestinationFromOpcode(opcode);
+    const Core::byte value = readRegisterOrMemory(dest);
+    const Core::byte result = value + 1 & 0xFF;
 
-    writeRegisterOrMemory(src, value + 1);
+    writeRegisterOrMemory(dest, result);
 
-    auxCarryFlag = false;
-    signFlag = (regA & 0x80) != 0;
-    zeroFlag = regA == 0;
-    parityFlag = PARITY_TABLE[regA];
-    carryFlag = false;
+    auxCarryFlag = (result & 0x0F) == 0;
+    signFlag = (result & 0x80) != 0;
+    zeroFlag = result == 0;
+    parityFlag = PARITY_TABLE[result];
 
-    return src == Register::M ? 10 : 5;
+    return dest == Register::M ? 10 : 5;
 }
 
 int I8080::executeIncrementPair(const Opcode opcode) {
