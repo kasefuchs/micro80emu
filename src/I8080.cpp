@@ -369,7 +369,7 @@ int I8080::executeDoubleAdd(const Opcode opcode) {
     const RegisterPair pair = GetRegisterPairFromOpcode(opcode);
     const Core::word value = readRegisterPair(pair);
 
-    const Core::word result = readRegisterPair(RegisterPair::HL) + value;
+    const int result = readRegisterPair(RegisterPair::HL) + value;
     writeRegisterPair(RegisterPair::HL, result);
     carryFlag = result > 0xFFFF;
 
@@ -384,7 +384,7 @@ int I8080::executeConditionalJump(const bool condition) {
 }
 
 int I8080::executeConditionalCall(const bool condition) {
-    const Core::word value = popStack();
+    const Core::word value = popCommandWord();
     if (!condition) return 11;
     pushStack(programCounter);
     programCounter = value;
