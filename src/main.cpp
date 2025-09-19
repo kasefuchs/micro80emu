@@ -4,7 +4,6 @@
 #include <cxxopts.hpp>
 
 #include "Hardware.h"
-#include "Screen.h"
 
 Core::byte rom[0x800];
 Core::byte font[0x2000];

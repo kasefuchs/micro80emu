@@ -243,7 +243,6 @@ int I8080::executeLogical(const Opcode opcode) {
     const Register src = GetSourceFromOpcode(opcode);
     const Core::byte value = readRegisterOrMemory(src);
 
-    // ReSharper disable once CppDefaultCaseNotHandledInSwitchStatement
     switch (static_cast<int>(opcode) & 0xF8) {
         case 0xA0: // ANA
             regA &= value;
@@ -257,6 +256,7 @@ int I8080::executeLogical(const Opcode opcode) {
             regA |= value;
             auxCarryFlag = false;
             break;
+        default: break;
     }
 
     carryFlag = false;
@@ -270,7 +270,6 @@ int I8080::executeLogical(const Opcode opcode) {
 int I8080::executeImmediateLogical(const Opcode opcode) {
     const Core::byte value = popCommandByte();
 
-    // ReSharper disable once CppDefaultCaseNotHandledInSwitchStatement
     switch (opcode) {
         case Opcode::ANI:
             regA &= value;
@@ -284,6 +283,7 @@ int I8080::executeImmediateLogical(const Opcode opcode) {
             regA |= value;
             auxCarryFlag = false;
             break;
+        default: break;
     }
 
     carryFlag = false;
