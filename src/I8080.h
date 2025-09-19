@@ -5,7 +5,8 @@
 
 class I8080 {
 public:
-    static constexpr float FREQUENCY = 25000000.0;
+    static constexpr int MIN_INSTRUCTION_CYCLES = 4;
+    static constexpr float CLOCK_FREQUENCY = 25000000.0f;
 
     enum class Opcode : Core::byte {
         NOP, LXI_B, STAX_B, INX_B, INR_B, DCR_B, MVI_B, RLC,

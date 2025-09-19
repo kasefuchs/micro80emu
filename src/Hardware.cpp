@@ -10,8 +10,8 @@ Hardware::Hardware(Core::ReadMemory rm, Core::WriteMemory wm, Core::ReadMemory r
       cpu(
           readMemory,
           writeMemory,
-          &Hardware::ReadIO,
-          &Hardware::WriteIO
+          [this](const Core::address addr) { return readIO(addr); },
+          [this](const Core::address addr, const Core::byte value) { writeIO(addr, value); }
       ),
       screen(readMemory, readFont) {
     initializeGraphics();
@@ -24,23 +24,35 @@ Rectangle Hardware::GetWindowBounds() {
     return {0, 0, static_cast<float>(width), static_cast<float>(height)};
 }
 
-Core::byte Hardware::ReadIO(const Core::address addr) {
-    // TODO: Implement IO read.
-    return 0xFF;
+Core::byte Hardware::readIO(const Core::address addr) const {
+    switch (static_cast<Port>(addr)) {
+        case Port::KeyboardModifier:
+            return keyboard.read(0xFF);
+        case Port::KeyboardRow:
+            return keyboard.read(keyboardColumn | 0x100);
+        default: return 0x82;
+    }
 }
 
-void Hardware::WriteIO(const Core::address addr, const Core::byte value) {
-    // TODO: Implement IO write.
+void Hardware::writeIO(const Core::address addr, const Core::byte value) {
+    switch (static_cast<Port>(addr)) {
+        case Port::KeyboardColumn:
+            keyboardColumn = value;
+            break;
+        default: break;
+    }
 }
 
 void Hardware::initializeGraphics() {
-    const int monitor = GetCurrentMonitor();
-    const int refreshRate = GetMonitorRefreshRate(monitor);
-    SetTargetFPS(refreshRate);
+    SetTraceLogLevel(LOG_ERROR);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
 
     const Rectangle bounds = Screen::GetTextureBounds();
     InitWindow(static_cast<int>(bounds.width), static_cast<int>(bounds.height), "Micro-80 Emulator");
+
+    const int monitor = GetCurrentMonitor();
+    const int refreshRate = GetMonitorRefreshRate(monitor);
+    SetTargetFPS(refreshRate);
 
     screen.initialize();
 }
@@ -50,17 +62,17 @@ void Hardware::run(const Core::address entryAddr) {
 
     double leftoverCycles = 0.0;
     while (!shouldExit()) {
-        const float delta = GetFrameTime();
-        double cyclesToRun = delta * I8080::FREQUENCY + leftoverCycles;
-        while (cyclesToRun > 0) cyclesToRun -= static_cast<double>(cpu.step());
-        leftoverCycles = cyclesToRun;
-
-        screen.updateTexture();
         BeginDrawing();
         {
-            const Rectangle textureBounds = Screen::GetTextureBounds();
-            const Rectangle windowBounds = GetWindowBounds();
-            DrawTexturePro(screen.getTexture(), textureBounds, windowBounds, {0, 0}, 0.0f, WHITE);
+            keyboard.update();
+
+            const float delta = GetFrameTime();
+            double cyclesToRun = delta * I8080::CLOCK_FREQUENCY + leftoverCycles;
+            while (cyclesToRun >= I8080::MIN_INSTRUCTION_CYCLES) cyclesToRun -= static_cast<double>(cpu.step());
+            leftoverCycles = cyclesToRun;
+
+            screen.updateTexture();
+            DrawTexturePro(screen.getTexture(), Screen::GetTextureBounds(), GetWindowBounds(), {0, 0}, 0.0f, WHITE);
         }
         EndDrawing();
     }
@@ -73,4 +85,3 @@ void Hardware::stop() {
 bool Hardware::shouldExit() const {
     return stopped || cpu.isHalted() || WindowShouldClose();
 }
-

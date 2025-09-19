@@ -3,6 +3,7 @@ add_executable(
         main.cpp
         I8080.cpp
         Screen.cpp
+        Keyboard.cpp
         Hardware.cpp
 )
 
