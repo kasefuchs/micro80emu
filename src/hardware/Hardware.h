@@ -1,8 +1,8 @@
 #pragma once
-#include "Screen.h"
-#include "I8080.h"
-#include "Keyboard.h"
 #include "Types.h"
+#include "I8080.h"
+#include "Screen.h"
+#include "Keyboard.h"
 
 class Hardware {
 public:
