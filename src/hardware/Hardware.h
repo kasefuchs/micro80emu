@@ -1,7 +1,7 @@
 #pragma once
 #include "Types.h"
 #include "I8080.h"
-#include "Screen.h"
+#include "../video/Video.h"
 #include "Keyboard.h"
 
 class Hardware {
@@ -32,10 +32,11 @@ private:
     Core::ReadMemory readFont;
 
     bool stopped{};
+    Texture2D videoOutput{};
     Core::byte keyboardColumn = 0xFF;
 
     I8080 cpu;
-    Screen screen;
+    Video video;
     Keyboard keyboard;
 
     void initializeGraphics();

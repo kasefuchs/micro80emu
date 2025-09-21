@@ -40,7 +40,7 @@ Finally, compile the sources:
 cmake --build .
 ```
 
-This will generate the `micro80emu` executable inside the `cmake-build/src` directory.
+This will generate the `micro80emu` executable inside the `cmake-build/app` directory.
 
 ## Usage <a name = "usage"></a>
 

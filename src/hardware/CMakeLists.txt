@@ -1,5 +1,4 @@
 add_library(hardware
-    Screen.cpp
     Keyboard.cpp
     Hardware.cpp
 )
@@ -11,5 +10,6 @@ target_include_directories(hardware
 target_link_libraries(hardware
     PRIVATE common
     PRIVATE cpu
+    PRIVATE video
     PRIVATE raylib
 )

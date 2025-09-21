@@ -4,19 +4,19 @@
 
 #include "Types.h"
 
-class Screen {
+class Video {
 public:
-    Screen(Core::ReadMemory rm, Core::ReadMemory rf);
+    Video(Core::ReadMemory rm, Core::ReadMemory rf);
 
-    ~Screen();
+    ~Video();
 
     static Rectangle GetTextureBounds();
 
     void initialize();
 
-    void updateTexture() const;
+    Image getBuffer() const;
 
-    Texture2D getTexture() const;
+    Image updateBuffer() const;
 
 private:
     static constexpr Core::address CHAR_CODE_OFFSET = 0xE800;
@@ -46,7 +46,6 @@ private:
     Core::ReadMemory readFont;
 
     Image buffer{};
-    Texture2D target{};
 
     void drawCell(int column, int row, Core::byte code, Core::byte attribute) const;
 };

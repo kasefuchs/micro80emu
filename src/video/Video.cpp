@@ -1,25 +1,24 @@
 #include <raylib.h>
 
-#include "Screen.h"
+#include "Video.h"
 
-Screen::Screen(Core::ReadMemory rm, Core::ReadMemory rf)
+Video::Video(Core::ReadMemory rm, Core::ReadMemory rf)
     : readMemory(std::move(rm)), readFont(std::move(rf)) {
 }
 
-Screen::~Screen() {
-    UnloadTexture(target);
+Video::~Video() {
     UnloadImage(buffer);
 }
 
-bool Screen::HasColor(const Core::byte attribute) {
+bool Video::HasColor(const Core::byte attribute) {
     return attribute & 0x7F;
 }
 
-Rectangle Screen::GetTextureBounds() {
+Rectangle Video::GetTextureBounds() {
     return {0, 0, WIDTH, HEIGHT};
 }
 
-Color Screen::GetTextColor(const Core::byte attribute) {
+Color Video::GetTextColor(const Core::byte attribute) {
     if (!HasColor(attribute)) return COLOR_TEXT;
 
     const Core::byte intensityAdjustment = (attribute >> 3 & 1) * (0xFF - COLOR_INTENSITY);
@@ -29,7 +28,7 @@ Color Screen::GetTextColor(const Core::byte attribute) {
     return {red, green, blue, 0xFF};
 }
 
-Color Screen::GetBackgroundColor(const Core::byte attribute) {
+Color Video::GetBackgroundColor(const Core::byte attribute) {
     if (!HasColor(attribute)) return COLOR_BACKGROUND;
 
     const Core::byte red = (attribute >> 6 & 1) * COLOR_INTENSITY;
@@ -38,19 +37,11 @@ Color Screen::GetBackgroundColor(const Core::byte attribute) {
     return {red, green, blue, 0xFF};
 }
 
-void Screen::initialize() {
+void Video::initialize() {
     buffer = GenImageColor(WIDTH, HEIGHT, COLOR_BACKGROUND);
-    target = LoadTextureFromImage(buffer);
 }
 
-Texture2D Screen::getTexture() const {
-    return target;
-}
-
-void Screen::drawCell(
-    const int column, const int row,
-    const Core::byte code, const Core::byte attribute
-) const {
+void Video::drawCell(const int column, const int row, const Core::byte code, const Core::byte attribute) const {
     const bool invertNextBit = column != COLUMNS - 1 && attribute & 0x80;
 
     const Color textColor = GetTextColor(attribute);
@@ -76,7 +67,11 @@ void Screen::drawCell(
     }
 }
 
-void Screen::updateTexture() const {
+Image Video::getBuffer() const {
+    return buffer;
+}
+
+Image Video::updateBuffer() const {
     Core::address charCodeAddress = CHAR_CODE_OFFSET;
     Core::address attributeAddress = ATTRIBUTE_OFFSET;
 
@@ -89,5 +84,5 @@ void Screen::updateTexture() const {
         }
     }
 
-    UpdateTexture(target, buffer.data);
+    return buffer;
 }

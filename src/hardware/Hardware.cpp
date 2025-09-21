@@ -3,7 +3,7 @@
 #include <fstream>
 #include <raylib.h>
 
-#include "Screen.h"
+#include "Video.h"
 
 Hardware::Hardware(Core::ReadMemory rm, Core::WriteMemory wm, Core::ReadMemory rf)
     : readMemory(std::move(rm)), writeMemory(std::move(wm)), readFont(std::move(rf)),
@@ -13,7 +13,7 @@ Hardware::Hardware(Core::ReadMemory rm, Core::WriteMemory wm, Core::ReadMemory r
           [this](const Core::address addr) { return readIO(addr); },
           [this](const Core::address addr, const Core::byte value) { writeIO(addr, value); }
       ),
-      screen(readMemory, readFont) {
+      video(readMemory, readFont) {
     initializeGraphics();
 }
 
@@ -47,14 +47,15 @@ void Hardware::initializeGraphics() {
     SetTraceLogLevel(LOG_ERROR);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
 
-    const Rectangle bounds = Screen::GetTextureBounds();
+    const Rectangle bounds = Video::GetTextureBounds();
     InitWindow(static_cast<int>(bounds.width), static_cast<int>(bounds.height), "Micro-80 Emulator");
 
     const int monitor = GetCurrentMonitor();
     const int refreshRate = GetMonitorRefreshRate(monitor);
     SetTargetFPS(refreshRate);
 
-    screen.initialize();
+    video.initialize();
+    videoOutput = LoadTextureFromImage(video.getBuffer());
 }
 
 void Hardware::run(const Core::address entryAddr) {
@@ -71,8 +72,8 @@ void Hardware::run(const Core::address entryAddr) {
             while (cyclesToRun >= I8080::MIN_INSTRUCTION_CYCLES) cyclesToRun -= static_cast<double>(cpu.step());
             leftoverCycles = cyclesToRun;
 
-            screen.updateTexture();
-            DrawTexturePro(screen.getTexture(), Screen::GetTextureBounds(), GetWindowBounds(), {0, 0}, 0.0f, WHITE);
+            UpdateTexture(videoOutput, video.updateBuffer().data);
+            DrawTexturePro(videoOutput, Video::GetTextureBounds(), GetWindowBounds(), {0, 0}, 0.0f, WHITE);
         }
         EndDrawing();
     }
